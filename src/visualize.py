@@ -1,19 +1,9 @@
 #Visualize
-import torch
-from torch import nn 
-import torch.nn.functional as F
-from torch.utils.tensorboard import SummaryWriter
-
 import torchvision
-import torchvision.transforms as transforms
-
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 
-import time
-import datetime
-import random
 
 def format_and_show(img, one_channel=False):
     '''Resizes the passed img parameter so that it can be accepted by 
@@ -35,6 +25,7 @@ def show_inputs(writer, raw_dl, model, train_batch_size, verbose):
     '''
     NORM_MIN, NORM_MAX = -1, 1
     images, labels = iter(raw_dl).__next__()
+    print("images.size(): {}".format(images.size()))
     img_grid = torchvision.utils.make_grid(
         images, normalize=True, range=(NORM_MIN, NORM_MAX))
     if verbose: 
@@ -43,8 +34,10 @@ def show_inputs(writer, raw_dl, model, train_batch_size, verbose):
         print("    img_grid.shape: {}.".format(img_grid.shape))
 
     format_and_show(img_grid, one_channel=False)
+    # hack, only one of these works, will investigate why later
     writer.add_image('four_digit_mnist_images', img_grid)
-    writer.add_graph(model, images.view(train_batch_size, -1))
+    writer.add_graph(model, images) # works for CNN
+    # writer.add_graph(model, images.view(train_batch_size, -1))
     writer.close()
 
 

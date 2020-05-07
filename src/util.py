@@ -1,36 +1,20 @@
-import torch
-from torch import nn 
-import torch.nn.functional as F
-from torch.utils.tensorboard import SummaryWriter
-
-import torchvision
-import torchvision.transforms as transforms
-
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-
-import time
-import datetime
-import random
+import sys
 
 #Util
-def validate_params(run_specifications, train_batch_size, verbose, dataset):
-    if dataset not in {"mnist", "cifar10"}:
-        print("ERROR: invalid dataset")
-        return False
+def assert_params(run_specifications, train_batch_size, dataset):
+    assert (dataset in {"mnist", "cifar10"}), "Invalid dataset specification of {}".format(dataset)
+
+    valid_specs = {
+        "model_str": {"small_nn", "large_nn", "linear", "small_cnn", "best_cnn"},
+        "augmentation": {"none", "vflip", "hflip", "contrast", "random"},
+        "optimizer": {"sgd", "adam"}
+    }
+
     for i, run_spec in enumerate(run_specifications):
-        if run_spec["model_str"] not in {"nn", "linear"}:
-            print("ERROR: invalid model in specification {}".format(i+1))
-            return False
-        if run_spec["augmentation"] not in {"none", "vflip", "hflip", "contrast"}:
-            print("ERROR: invalid augmentation in specification {}".format(i+1))
-            return False
-        if run_spec["optimizer"] not in {"sgd", "adam"}:
-            print("ERROR: invalid optimizer in specification {}".format(i+1))
-            return False
-    return True
-    
+        for spec_to_check, valid_values in valid_specs.items():
+            assert (run_spec[spec_to_check] in valid_values), \
+                "Invalid {} specification of {}".format(spec_to_check, run_spec[spec_to_check])
+
 
 def print_vm_info():
     '''Prints GPU and RAM info of the connected Google Colab VM.''' 

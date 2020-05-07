@@ -1,38 +1,45 @@
 import torch
-from torch import nn 
-import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-
-import torchvision
-import torchvision.transforms as transforms
-
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-
-import time
 import datetime
-import random
+import argparse
+import sys
 
 import util 
 import data_loading
 import visualize
 import build_model
 
+
 torch.manual_seed(42)
 np.random.seed(42)
 
 
-def main(run_specifications, train_batch_size=60, verbose=False, dataset="mnist"):
-    if not util.validate_params(run_specifications, train_batch_size, verbose, dataset):
-        return -1 
+def get_args(arguments):
+    '''Parse the arguments passed via the command line.
+    '''
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('-v', '--verbose', help='Print debugging output, with 0 being no output', action='count', default=1)
+    parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=3)
+    args = parser.parse_args(arguments)
+    return args
+
+
+# TODO:
+# - take command line params
+# - plot test and validation accuracy together on tensorbaord
+def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
+    util.assert_params(run_specifications, train_batch_size, dataset)
     
     print("Using GPU: {}".format(torch.cuda.is_available()))
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
-    test_trans, vflip_trans, hflip_trans, contrast_trans = data_loading.init_transforms()
-    transforms = {"none": test_trans, "vflip": vflip_trans,
-                        "hflip": hflip_trans, "contrast": contrast_trans}
+    test_trans, vflip_trans, hflip_trans, contrast_trans, rand_trans = data_loading.init_transforms()
+    transforms = {"none": test_trans, 
+                  "vflip": vflip_trans,
+                  "hflip": hflip_trans, 
+                  "contrast": contrast_trans,
+                  "random": rand_trans}
 
     for run_spec in run_specifications:
         '''Iterates through each model configuration specified by run_specifications. 
@@ -47,43 +54,27 @@ def main(run_specifications, train_batch_size=60, verbose=False, dataset="mnist"
             run_spec["augmentation"], run_spec["batch_size"], run_spec["optimizer"],
             datetime.datetime.now().strftime("%H:%M:%S")))
 
-        train_dl, valid_dl, test_dl = data_loading.build_dl(run_spec, dataset, transforms, verbose)
-        raw_dl, train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(train_dl, valid_dl, test_dl, dev, verbose)
+        train_dl, valid_dl, test_dl = data_loading.build_dl(run_spec, dataset, transforms, args.verbose)
+        reshape = False if "cnn" in run_spec["model_str"] else True
+        raw_dl, train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(train_dl, valid_dl, test_dl, dev, reshape, args.verbose)
 
-        loss_func = nn.CrossEntropyLoss() # TODO: hyperparameterize 
+        loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
         model = build_model.init_model(run_spec["model_str"], dataset, dev)
+        optimizer = build_model.init_optimizer(run_spec, model)
 
-        if run_spec["optimizer"] == "sgd":
-            optimizer = torch.optim.SGD(model.parameters(), lr=run_spec["lr"]) # TODO: hyperparameterize
-        elif run_spec["optimizer"] == "adam":
-            optimizer = torch.optim.Adam(model.parameters(), lr=run_spec["lr"])
-        else:
-            print("ERROR: invalid optimizer")
-            return -1 
-
-        visualize.show_inputs(writer, raw_dl, model, run_spec["batch_size"], verbose)
+        # slower when this is uncommented, and it sometimes doesn't work
+        visualize.show_inputs(writer, raw_dl, model, run_spec["batch_size"], args.verbose)
 
         build_model.fit_model(writer, run_spec, model, train_dlr, loss_func, optimizer, valid_dlr)
-        build_model.eval_model(writer, test_dlr, model, run_spec, verbose)
+        build_model.eval_model(writer, test_dlr, model, run_spec, args.verbose)
         writer.close()
         print("========================= End of Run =========================\n")
 
 
-main(run_specifications = [{"model_str": "nn", "epochs": 1, "lr": 1e-3, "augmentation": "hflip", "batch_size": 64, "optimizer": "adam"}],
-     verbose=True, dataset="cifar10")
-
-
-# Tensorboard stuff, originally from Jupyter:
-
-
-# Reinstalls tensorflow (which was uninstalled to get add_embeddings to work),
-# which is required for tensorboard. If the installation reccomends you restart
-# runtime, ignore it. 
-# get_ipython().system('pip install tensorflow')
-
-
-# import torch.utils.tensorboard
-
-# get_ipython().run_line_magic('reload_ext', 'tensorboard')
-# get_ipython().run_line_magic('tensorboard', '--logdir=runs')
+if __name__ == "__main__":
+    args = get_args(sys.argv[1:])
+    print("args: {}".format(args))
+    main(run_specifications = [{"model_str": "best_cnn", "epochs": 50, "lr": 1e-3, "augmentation": "random", "batch_size": 64, "optimizer": "adam"},
+                               {"model_str": "best_cnn", "epochs": 50, "lr": 1e-3, "augmentation": "hflip", "batch_size": 64, "optimizer": "adam"}],
+         dataset="cifar10", args=args)
 

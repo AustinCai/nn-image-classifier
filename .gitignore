@@ -2,5 +2,5 @@
 *data*
 *runs*
 /venv/
-/__pycache__/
+*__pycache__*
 /.ipynb_checkpoints/
