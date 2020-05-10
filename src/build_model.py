@@ -9,47 +9,100 @@ import models
 # def seed(s):
 #     torch.manual_seed(s)
 
-def accuracy(yh, y):
-    '''Caclulates the model's per-batch accuracy given its 
-    batch_size x class_count) output and (batch_size) labels. Does this by
-    interpreting the models prediction on each data point as the 
-    highest-scored class.
-    '''
-    preds = torch.argmax(yh, dim=1)
-    accuracy = (preds == y).float().mean()
-    return accuracy
-
-
-def predict_with_logs(label_str, model, x, y, print_logs):
-    if print_logs:
+def model_wrapper_2(label_str, model, x):
+    if label_str:
         print("    x_{}.size(): {}".format(label_str, x.size()))
         print("    y_{}.size(): {}".format(label_str, y.size()))       
     yh = model(x)
-    if print_logs:
+    if label_str:
         print("    yh_{}.size(): {}".format(label_str, yh.size()))
-    return yh
+
+    predictions = torch.argmax(yh, dim=1)
+    return yh, predictions
+
+# def model_wrapper(label_str, model, loss_func, x, y):
+#     if label_str:
+#         print("    x_{}.size(): {}".format(label_str, x.size()))
+#         print("    y_{}.size(): {}".format(label_str, y.size()))       
+#     yh = model(x)
+#     if label_str:
+#         print("    yh_{}.size(): {}".format(label_str, yh.size()))
+
+#     predictions = torch.argmax(yh, dim=1)
+#     accuracy = (predictions == y).float().mean()
+#     loss = loss_func(yh, y)
+#     return yh, predictions, accuracy, loss
 
 
-def log_epoch_statistics(writer, model, valid_dl, loss, train_accuracy, epoch, verbose):
-    if not epoch:
-        print("    Note: Validation accuracy is calculated on the model once it has been trained over the entire epoch, \n"
-            + "    while training accuracy is calculated while the model is still training within the epoch. \n"
-            + "    Thus, validation accuracy may be higher than training accuracy when the model is learning quickly \n" \
-            + "    (eg. during the first epochs).")
+# def eval_model(writer, dl, model, loss_func, run_spec):
+#     '''Runs the model over the test set, saving the model's accuracy alongside
+#     its hyperparameters to tensorboard. If writer is None, results will not be
+#     logged and saved. 
+#     '''
+#     x_batch, y_batch = iter(dl).__next__()
+#     yh_batch, predictions, accuracy, loss = model_wrapper(None, model, loss_func, x_batch, y_batch)
 
-    with torch.no_grad():
-        x_valid, y_valid = iter(valid_dl).__next__()
+#     if (writer):
+#         print("Final model test accuracy: {}.".format(accuracy.item()))
+#         writer.add_hparams(run_spec, {'accuracy': accuracy})
+#         visualize.print_save_cmatrix(writer, y_batch.detach().cpu(), predictions.detach().cpu())
 
-        print_logs = verbose and not epoch # prints once per epoch
-        yh_valid = predict_with_logs("valid", model, x_valid, y_valid, print_logs)
+#     return accuracy, loss
 
-        validation_accuracy = accuracy(yh_valid, y_valid)
+# if optimizer, also learn
 
-    writer.add_scalars("Validation vs. Train Accuracy", {"validation": validation_accuracy, "train": train_accuracy}, global_step=epoch)
-    writer.add_scalar('Training Accuracy', train_accuracy, global_step=epoch)
-    writer.add_scalar('Validation Accuracy', validation_accuracy, global_step=epoch)
-    writer.add_scalar('Loss', loss, global_step=epoch)
-    print("    EPOCH {}: loss {}, val acc {}, train acc {}.".format(epoch+1, loss, validation_accuracy, train_accuracy))
+def eval_model(model, loss_func, dataloader, verbose=False):
+    return train_and_eval_model(model, loss_func, dataloader, verbose=False)
+
+def train_and_eval_model(model, loss_func, dataloader, 
+    validation_dataloader=None, optimizer=None, writer=None, run_spec=None, verbose=False):
+    if optimizer:
+        start_time = time.time()
+        print('BEGIN TRAINING: {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
+            run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], run_spec["epochs"]))
+
+        accuracy_arr, loss_arr, validation_accuracy_arr, validation_loss_arr = [], [], [0], ["NA"]
+
+    # returns after first epoch if not learning
+    epochs = run_spec["epochs"] if optimizer else 1
+    for epoch in range(epochs):
+        running_loss, running_accuracy = 0.0, 0.0
+
+        for i, (x_batch, y_batch) in enumerate(dataloader):
+
+            label_str = "batch" if (verbose and not i and not epoch) else None
+            yh_batch, predictions = model_wrapper_2(label_str, model, x_batch)
+            accuracy = (predictions == y_batch).float().mean()
+
+            loss = loss_func(yh_batch, y_batch)
+
+            if optimizer: # perform learning
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            running_accuracy += accuracy
+            running_loss += loss.item()
+
+        epoch_accuracy, epoch_loss = running_accuracy/len(dataloader), running_loss/len(dataloader)
+        
+        if not optimizer: # without learning, function execution ends here ------------------------------------
+            print("Final model test accuracy: {}.".format(epoch_accuracy))
+            return predictions, epoch_accuracy, epoch_loss
+        
+        _, epoch_validation_accuracy, epoch_validation_loss = eval_model(model, loss_func, validation_dataloader)
+
+        loss_arr.append(epoch_loss)
+        accuracy_arr.append(epoch_accuracy)
+        validation_loss_arr.append(epoch_validation_loss)
+        validation_accuracy_arr.append(epoch_validation_accuracy)
+
+        print("    EPOCH {}: train acc {}, val acc {} || train loss {}, val loss {}.".format(
+            epoch+1, accuracy_arr[-1], validation_accuracy_arr[-2], loss_arr[-1], validation_loss_arr[-2]))
+    
+    write_run_plots(writer, loss_arr, accuracy_arr, validation_accuracy_arr, validation_loss_arr)
+    writer.close()
+    print("Training completed in {} seconds.".format(time.time() - start_time))
 
 
 def fit_model(writer, run_spec, model, train_dl, loss_func, optimizer, valid_dl, verbose):
@@ -63,42 +116,56 @@ def fit_model(writer, run_spec, model, train_dl, loss_func, optimizer, valid_dl,
 
     start_time = time.time()
 
+    # Validation accuracy V_e for epoch e is defined as the accuracy the model achives over the validation set 
+    # after completing e-1 epochs of training. The loss L_e and train accuracy T_e for epoch e are defined as
+    # the averaged loss and accuracy over all training batches in epoch e. Eg. the validation accuracy of epoch 
+    # 1 is 0, and all future valued are offset by one. Without this shift, the model that validation accuracy is
+    # calculated over would have undergone more training, artificially inflatin its value. 
+    validation_accuracy_arr, validation_loss_arr, train_accuracy_arr, train_loss_arr = [0], ["NA"], [], []
+
     for epoch in range(run_spec["epochs"]):
         running_loss, running_train_accuracy = 0.0, 0.0
 
         for i, (x_batch, y_batch) in enumerate(train_dl):
 
-            print_logs = verbose and not i and not epoch # print only once, across all batches and epochs 
-            yh_batch = predict_with_logs("batch", model, x_batch, y_batch, print_logs)
+            # print only once, across all batches and epochs
+            label_str = "batch" if (verbose and not i and not epoch) else None  
+            yh_batch, predictions, accuracy, loss = model_wrapper(label_str, model, loss_func, x_batch, y_batch)
 
-            loss = loss_func(yh_batch, y_batch)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             running_loss += loss.item()
-            running_train_accuracy += accuracy(yh_batch, y_batch)
-            
-        # Prints loss and accuracy info from the last batch of each epoch.              
-        log_epoch_statistics(writer, model, valid_dl, running_loss/i, running_train_accuracy/i, epoch, verbose)
-      
+            running_train_accuracy += accuracy
+
+        epoch_train_loss, epoch_train_accuracy = running_loss/len(train_dl), running_train_accuracy/len(train_dl)
+        epoch_validation_accuracy, epoch_validation_loss = eval_model(None, valid_dl, model, loss_func, run_spec)
+
+        train_loss_arr.append(epoch_train_loss)
+        train_accuracy_arr.append(epoch_train_accuracy)
+        validation_loss_arr.append(epoch_validation_loss)
+        validation_accuracy_arr.append(epoch_validation_accuracy)
+
+        print("    EPOCH {}: train acc {}, val acc {} || train loss {}, val loss {}.".format(
+            epoch+1, train_accuracy_arr[-1], validation_accuracy_arr[-2], train_loss_arr[-1], validation_loss_arr[-2]))
+    
+    write_run_plots(writer, train_loss_arr, train_accuracy_arr, validation_accuracy_arr, validation_loss_arr)
     writer.close()
     print("Training completed in {} seconds.".format(time.time() - start_time))
 
 
-def eval_model(writer, test_dl, model, run_spec, verbose):
-    '''Runs the model over the test set, saving the model's accuracy alongside
-    its hyperparameters to tensorboard. 
-    '''
-    x_batch_test, y_batch_test = iter(test_dl).__next__()
-    yh_batch_test = model(x_batch_test)
-
-    accuracy_test = accuracy(yh_batch_test, y_batch_test)
-    print("Final model test accuracy: {}.".format(accuracy_test.item()))
-
-    writer.add_hparams(run_spec, {'accuracy': accuracy_test})
-    preds = torch.argmax(yh_batch_test, dim=1) 
-    visualize.print_save_cmatrix(writer, y_batch_test.detach().cpu(), preds.detach().cpu())
+def write_run_plots(writer, train_loss_arr, train_accuracy_arr, validation_accuracy_arr, validation_loss_arr):
+    # This for loop skips the last entry of validation_accuracy_arr, since the entire array is shifted over by one. 
+    # See the comment above the initialization of validation_accuracy_arr.
+    for epoch in range(len(train_loss_arr)):
+        writer.add_scalars("Validation vs. Train Accuracy", 
+            {"validation": validation_accuracy_arr[epoch], "train": train_accuracy_arr[epoch]}, global_step=epoch+1)
+        writer.add_scalar('Accuracy/Train', train_accuracy_arr[epoch], global_step=epoch+1)
+        writer.add_scalar('Accuracy/Validation', validation_accuracy_arr[epoch], global_step=epoch+1)
+        writer.add_scalar('Loss/Train', train_loss_arr[epoch], global_step=epoch+1)   
+        if (epoch):
+            writer.add_scalar('Loss/Validation', validation_loss_arr[epoch], global_step=epoch+1) 
 
 
 def init_optimizer(run_spec, model):

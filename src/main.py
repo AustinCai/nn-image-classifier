@@ -72,8 +72,13 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
         # takes 3 minutes to run, comment if not needed
         # visualize.show_inputs_and_graph(writer, raw_dl, model, run_spec["batch_size"], args.verbose)
 
-        build_model.fit_model(writer, run_spec, model, train_dlr, loss_func, optimizer, valid_dlr, args.verbose)
-        build_model.eval_model(writer, test_dlr, model, run_spec, args.verbose)
+        build_model.train_and_eval_model(model, loss_func, train_dlr, valid_dlr, optimizer, writer, run_spec, args.verbose)
+        
+        predictions, accuracy, loss = build_model.eval_model(model, loss_func, test_dlr, args.verbose)
+        writer.add_hparams(run_spec, {'accuracy': accuracy})
+        # visualize.print_save_cmatrix(writer, y_batch.detach().cpu(), predictions.detach().cpu())
+        # build_model.fit_model(writer, run_spec, model, train_dlr, loss_func, optimizer, valid_dlr, args.verbose)
+        # build_model.eval_model(writer, test_dlr, model, loss_func, run_spec)
         writer.close()
         print("========================= End of Run =========================\n")
 
@@ -81,7 +86,6 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
 if __name__ == "__main__":
     args = get_args(sys.argv[1:])
     print("args: {}".format(args))
-    main(run_specifications = [{"model_str": "small_nn", "epochs": 1, "lr": 1e-3, "augmentation": "random", "batch_size": 64, "optimizer": "adam"},
-                               {"model_str": "small_nn", "epochs": 1, "lr": 1e-3, "augmentation": "random", "batch_size": 64, "optimizer": "adam"}],
+    main(run_specifications = [{"model_str": "best_cnn", "epochs": 10, "lr": 1e-3, "augmentation": "random", "batch_size": 64, "optimizer": "adam"}],
          dataset="cifar10", args=args)
 

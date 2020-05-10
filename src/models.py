@@ -1,7 +1,6 @@
 from torch import nn 
 import torch.nn.functional as F
 
-
 class Linear(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -14,10 +13,9 @@ class Linear(nn.Module):
 class SmallNN(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        IN_HIDDEN, OUT_HIDDEN = 32, 32
-        self.l1 = nn.Linear(in_channels, IN_HIDDEN)
-        self.l2 = nn.Linear(IN_HIDDEN, OUT_HIDDEN)
-        self.l3 = nn.Linear(OUT_HIDDEN, out_channels) 
+        self.l1 = nn.Linear(in_channels, 32)
+        self.l2 = nn.Linear(32, 32)
+        self.l3 = nn.Linear(32, out_channels) 
 
     def forward(self, xb):
         a1 = F.relu(self.l1(xb))
