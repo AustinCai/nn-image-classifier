@@ -52,19 +52,17 @@ def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validati
             "validation_accuracy": epoch_validation_accuracy.item()
             })
 
-        print("    EPOCH {}: train acc {}, val acc {} || train loss {}, val loss {}.".format(epoch+1,
+        print("    Epoch {}: train acc {}, val acc {} || train loss {}, val loss {}.".format(epoch+1,
             training_statistics_arr[-2]["accuracy"], training_statistics_arr[-2]["validation_accuracy"], 
             training_statistics_arr[-2]["loss"], training_statistics_arr[-2]["validation_loss"]))
 
     return epoch_accuracy, epoch_loss
 
 
-def run_training(model, loss_func, dataloader, 
-    validation_dataloader=None, optimizer=None, writer=None, run_spec=None, verbose=False):
-    if optimizer:
-        start_time = time.time()
-        print('BEGIN TRAINING: {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
-            run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], run_spec["epochs"]))
+def run_training(model, loss_func, dataloader, validation_dataloader, optimizer, writer, run_spec, verbose=False):
+    start_time = time.time()
+    print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
+        run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], run_spec["epochs"]))
 
     '''
     Validation Offset:
@@ -79,16 +77,20 @@ def run_training(model, loss_func, dataloader,
         "loss": None, # will be replaced, implementing the validation offset
         "accuracy": None, # will be replaced, implementing the validation offset
         "validation_loss": "NA", # val loss of epoch 1 defined as NA
-        "validation_accuracy": 0 # val accuracy of epoch 1 defined as 0
+        "validation_accuracy": 0.0 # val accuracy of epoch 1 defined as 0
         }]
 
     for epoch in range(run_spec["epochs"]):
         run_epoch(model, loss_func, dataloader, epoch, optimizer, validation_dataloader, training_statistics_arr, verbose)
+    training_statistics_arr.pop() # get rid of last element, which has loss and accuracy values unset because of validation offset
 
-    if optimizer:
-        write_training_statistics(writer, training_statistics_arr)
-        writer.close()
-        print("Training completed in {} seconds.".format(time.time() - start_time))
+    write_training_statistics(writer, training_statistics_arr)
+    writer.close()
+    print("Training completed in {} seconds.".format(time.time() - start_time))
+
+    return training_statistics_arr
+
+
 
 
 def write_training_statistics(writer, training_statistics_arr):

@@ -40,12 +40,11 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
     print("Using GPU: {}".format(torch.cuda.is_available()))
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
-    test_trans, vflip_trans, hflip_trans, contrast_trans, rand_trans = data_loading.init_transforms()
-    transforms = {"none": test_trans, 
+    test_trans, vflip_trans, hflip_trans, contrast_trans = data_loading.init_baseline_transforms()
+    baseline_transforms = {"none": test_trans, 
                   "vflip": vflip_trans,
                   "hflip": hflip_trans, 
-                  "contrast": contrast_trans,
-                  "random": rand_trans}
+                  "contrast": contrast_trans}
 
     for run_spec in run_specifications:
         # Notes on deterministic randomness:
@@ -56,12 +55,12 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
         np.random.seed(42)
         # seed_all(42)
 
-        writer = SummaryWriter('runs/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
+        writer = SummaryWriter('../runs/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
             run_spec["model_str"], run_spec["epochs"], run_spec["lr"], 
             run_spec["augmentation"], run_spec["batch_size"], run_spec["optimizer"],
             datetime.datetime.now().strftime("%H:%M:%S")))
 
-        train_dl, valid_dl, test_dl = data_loading.build_dl(run_spec, dataset, transforms, args.verbose)
+        train_dl, valid_dl, test_dl = data_loading.build_dl(run_spec, dataset, baseline_transforms, args.verbose)
         reshape = False if "cnn" in run_spec["model_str"] else True
         raw_dl, train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(train_dl, valid_dl, test_dl, dev, reshape, args.verbose)
 
@@ -70,11 +69,19 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
         optimizer = build_model.init_optimizer(run_spec, model)
 
         # takes 3 minutes to run, comment if not needed
-        # visualize.show_inputs_and_graph(writer, raw_dl, model, run_spec["batch_size"], args.verbose)
+        visualize.show_inputs_and_graph(writer, raw_dl, model, run_spec["batch_size"], args.verbose)
 
-        build_model.run_training(model, loss_func, train_dlr, valid_dlr, optimizer, writer, run_spec, verbose=args.verbose)
+        last_epoch_stats = build_model.run_training(
+            model, loss_func, train_dlr, valid_dlr, optimizer, writer, run_spec, verbose=args.verbose)[-1]
         accuracy, loss = build_model.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
-        print("Final model test accuracy: {}.".format(accuracy))
+
+        print("Final model statistics:")
+        print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
+        print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
+        print("    train/val difference: {}".format(last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
+        print("    test accuracy: {}".format(accuracy))
+
+
         writer.add_hparams(run_spec, {'accuracy': accuracy})
         writer.close()
         print("========================= End of Run =========================\n")
@@ -83,6 +90,7 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
 if __name__ == "__main__":
     args = get_args(sys.argv[1:])
     print("args: {}".format(args))
-    main(run_specifications = [{"model_str": "best_cnn", "epochs": 10, "lr": 1e-3, "augmentation": "random", "batch_size": 64, "optimizer": "adam"}],
+    main(run_specifications = [{"model_str": "best_cnn", "epochs": 3, "lr": 1e-3, "augmentation": "random", "randaugment_N": 1, "randaugment_M": 2, "batch_size": 64, "optimizer": "adam"},
+                               {"model_str": "best_cnn", "epochs": 3, "lr": 1e-3, "augmentation": "hflip", "batch_size": 64, "optimizer": "adam"}],
          dataset="cifar10", args=args)
 
