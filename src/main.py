@@ -4,6 +4,7 @@ import numpy as np
 import datetime
 import argparse
 import sys
+from pathlib import Path
 
 import util 
 import data_loading
@@ -55,7 +56,7 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
         np.random.seed(42)
         # seed_all(42)
 
-        writer = SummaryWriter('../runs/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
+        writer = SummaryWriter(Path(__file__).parent.resolve() / '../runs/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
             run_spec["model_str"], run_spec["epochs"], run_spec["lr"], 
             run_spec["augmentation"], run_spec["batch_size"], run_spec["optimizer"],
             datetime.datetime.now().strftime("%H:%M:%S")))
@@ -90,7 +91,6 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
 if __name__ == "__main__":
     args = get_args(sys.argv[1:])
     print("args: {}".format(args))
-    main(run_specifications = [{"model_str": "best_cnn", "epochs": 3, "lr": 1e-3, "augmentation": "random", "randaugment_N": 1, "randaugment_M": 2, "batch_size": 64, "optimizer": "adam"},
-                               {"model_str": "best_cnn", "epochs": 3, "lr": 1e-3, "augmentation": "hflip", "batch_size": 64, "optimizer": "adam"}],
+    main(run_specifications = [{"model_str": "linear", "epochs": 1, "lr": 1e-4, "augmentation": "hflip", "batch_size": 64, "optimizer": "adam"}],
          dataset="cifar10", args=args)
 
