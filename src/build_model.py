@@ -21,30 +21,36 @@ def model_wrapper(label_str, model, x):
     return yh, predictions
 
 
+def run_batch(model, loss_func, x_batch, y_batch, epoch=None, optimizer=None, verbose=False):
+    # print only once, across all batches and epochs
+    label_str = "batch" if (verbose and not i and not epoch) else None
+    yh_batch, predictions = model_wrapper(label_str, model, x_batch)
+    accuracy = (predictions == y_batch).float().mean()
+
+    loss = loss_func(yh_batch, y_batch)
+
+    if optimizer: # perform learning
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    return accuracy, loss.item()
+
+
 def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validation_dataloader=None, training_statistics_arr=None, verbose=False):
     running_loss, running_accuracy = 0.0, 0.0
 
     for i, (x_batch, y_batch) in enumerate(dataloader):
-        # print only once, across all batches and epochs
-        label_str = "batch" if (verbose and not i and not epoch) else None
-        yh_batch, predictions = model_wrapper(label_str, model, x_batch)
-        accuracy = (predictions == y_batch).float().mean()
-
-        loss = loss_func(yh_batch, y_batch)
-
-        if optimizer: # perform learning
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
+        accuracy, loss = run_batch(model, loss_func, x_batch, y_batch, epoch, optimizer, verbose)
         running_accuracy += accuracy
-        running_loss += loss.item()
+        running_loss += loss
 
     epoch_accuracy, epoch_loss = running_accuracy/len(dataloader), running_loss/len(dataloader)
     
-    if optimizer:
+    if validation_dataloader:
         epoch_validation_accuracy, epoch_validation_loss = run_epoch(model, loss_func, validation_dataloader)
 
+    if training_statistics_arr and epoch:
         training_statistics_arr[-1]["loss"] = epoch_loss
         training_statistics_arr[-1]["accuracy"] = epoch_accuracy.item()
         training_statistics_arr.append({"loss": None, "accuracy": None,
@@ -89,8 +95,6 @@ def run_training(model, loss_func, dataloader, validation_dataloader, optimizer,
     print("Training completed in {} seconds.".format(time.time() - start_time))
 
     return training_statistics_arr
-
-
 
 
 def write_training_statistics(writer, training_statistics_arr):

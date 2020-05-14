@@ -1,7 +1,7 @@
 import sys
 
 #Util
-def assert_params(run_specifications, train_batch_size, dataset):
+def assert_params(run_specifications, dataset):
     assert (dataset in {"mnist", "cifar10"}), "Invalid dataset specification of {}".format(dataset)
 
     valid_specs = {

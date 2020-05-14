@@ -22,14 +22,13 @@ def format_and_show(img, one_channel=False):
         plt.imshow(np.transpose(npimg, (row_idx, col_idx, channel_idx)))
 
 
-def show_inputs_and_graph(writer, raw_dl, model, train_batch_size, verbose):
+def show_images(writer, images, title="Images", verbose=False):
     '''Displays the input images passed in through train_dl, both to the console
     and to tensorboard. 
     '''
     start_time = time.time()
 
     norm_min, norm_max = -1, 1
-    images, labels = iter(raw_dl).__next__()
     img_grid = torchvision.utils.make_grid(images, normalize=True, range=(norm_min, norm_max))
     if verbose: 
         print("In visualize.show_inputs_and_graph().")
@@ -37,17 +36,20 @@ def show_inputs_and_graph(writer, raw_dl, model, train_batch_size, verbose):
         print("    img_grid.shape: {}.".format(img_grid.shape))
 
     format_and_show(img_grid, one_channel=False)
-    writer.add_image('four_digit_mnist_images', img_grid)
+    writer.add_image(title, img_grid)
+
+    print("    visualize.show_images() completed in {} seconds.".format(time.time() - start_time))
+
+
+def show_graph(writer, model, images, train_batch_size):
+    start_time = time.time()
 
     # hack, only one of these works, will investigate why later
-    # try:
-    #     writer.add_graph(model, images) # works for CNN
-    # except:
-    #     writer.add_graph(model, images.view(train_batch_size, -1)) # works for NN
-    writer.close()
-
-    print("    visualize.show_inputs_and_graph() completed in {} seconds.".format(time.time() - start_time))
-
+    try:
+        writer.add_graph(model, images) # works for CNN
+    except:
+        writer.add_graph(model, images.view(train_batch_size, -1)) # works for NN 
+    print("    visualize.show_graph() completed in {} seconds.".format(time.time() - start_time))   
 
 
 def normalize_cmatrix(cmatrix_test, norm_max):

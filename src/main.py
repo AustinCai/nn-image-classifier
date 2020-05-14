@@ -23,29 +23,28 @@ import build_model
 def get_args(arguments):
     '''Parse the arguments passed via the command line.
     '''
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-v', '--verbose', help='Print debugging output', action='count', default=0)
-    parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=3)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        '-v', '--verbose', help='Print debugging output', action='count', default=0)
+    parser.add_argument(
+        '-e', '--epochs', help='Epochs to run training', type=int, default=3)
     args = parser.parse_args(arguments)
     return args
 
 
-def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
+def main(run_specifications, dataset="cifar10", args=None):
     '''Iterates through each model configuration specified by run_specifications. 
     Initializes and trains each model with its specified configuration, 
     evaluates each on the test set, and records its performance to 
     tensorboard.
     '''
-    util.assert_params(run_specifications, train_batch_size, dataset)
+    util.assert_params(run_specifications, dataset)
     
     print("Using GPU: {}".format(torch.cuda.is_available()))
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
-    test_trans, vflip_trans, hflip_trans, contrast_trans = data_loading.init_baseline_transforms()
-    baseline_transforms = {"none": test_trans, 
-                  "vflip": vflip_trans,
-                  "hflip": hflip_trans, 
-                  "contrast": contrast_trans}
+    baseline_transforms = data_loading.init_baseline_transforms()
 
     for run_spec in run_specifications:
         # Notes on deterministic randomness:
@@ -56,21 +55,26 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
         np.random.seed(42)
         # seed_all(42)
 
-        writer = SummaryWriter(Path(__file__).parent.resolve() / '../runs/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
+        writer = SummaryWriter(
+            Path(__file__).parent.resolve() / '../runs/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
             run_spec["model_str"], run_spec["epochs"], run_spec["lr"], 
             run_spec["augmentation"], run_spec["batch_size"], run_spec["optimizer"],
             datetime.datetime.now().strftime("%H:%M:%S")))
 
-        train_dl, valid_dl, test_dl = data_loading.build_dl(run_spec, dataset, baseline_transforms, args.verbose)
+        train_dl, valid_dl, test_dl = data_loading.build_dl(
+            run_spec, dataset, baseline_transforms, args.verbose)
         reshape = False if "cnn" in run_spec["model_str"] else True
-        raw_dl, train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(train_dl, valid_dl, test_dl, dev, reshape, args.verbose)
+        raw_dl, train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
+            train_dl, valid_dl, test_dl, dev, reshape, args.verbose)
 
         loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
         model = build_model.init_model(run_spec["model_str"], dataset, dev)
         optimizer = build_model.init_optimizer(run_spec, model)
 
         # takes 3 minutes to run, comment if not needed
-        visualize.show_inputs_and_graph(writer, raw_dl, model, run_spec["batch_size"], args.verbose)
+        images, _ = iter(raw_dl).__next__()
+        visualize.show_images(writer, images, title="Images", verbose=args.verbose)
+        visualize.show_graph(writer, model, images, run_spec["batch_size"])
 
         last_epoch_stats = build_model.run_training(
             model, loss_func, train_dlr, valid_dlr, optimizer, writer, run_spec, verbose=args.verbose)[-1]
@@ -79,7 +83,8 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
         print("Final model statistics:")
         print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
         print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
-        print("    train/val difference: {}".format(last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
+        print("    train/val difference: {}".format(
+            last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
         print("    test accuracy: {}".format(accuracy))
 
 
@@ -91,6 +96,18 @@ def main(run_specifications, train_batch_size=60, dataset="mnist", args=None):
 if __name__ == "__main__":
     args = get_args(sys.argv[1:])
     print("args: {}".format(args))
-    main(run_specifications = [{"model_str": "linear", "epochs": 1, "lr": 1e-4, "augmentation": "hflip", "batch_size": 64, "optimizer": "adam"}],
-         dataset="cifar10", args=args)
+    main(run_specifications = [
+            {
+                "model_str": "best_cnn", 
+                "epochs": 3, 
+                "lr": 1e-3, 
+                "augmentation": 
+                "hflip", 
+                "batch_size": 64, 
+                "optimizer": "adam"
+            }
+        ],
+        dataset="cifar10", 
+        args=args
+        )
 
