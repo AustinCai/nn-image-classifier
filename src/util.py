@@ -5,6 +5,7 @@ class Constants:
     cifar10_y = 32
     cifar10_channels = 3
     batch_size = 64
+    out_channels = 3072
 
     # constant for dev
 

@@ -12,23 +12,30 @@ from util import Constants
 #     torch.manual_seed(s)
 
 def model_wrapper(label_str, model, x):
-    if label_str:
-        print("    x_{}.size(): {}".format(label_str, x.size()))
-        print("    y_{}.size(): {}".format(label_str, y.size()))       
+         
     yh = model(x)
-    if label_str:
-        print("    yh_{}.size(): {}".format(label_str, yh.size()))
-
     predictions = torch.argmax(yh, dim=1)
+
+    if label_str:
+        print("    x_{}.size(): {}".format(label_str, x.size()))   
+        print("    yh_{}.size(): {}".format(label_str, yh.size()))
+        print("    predictions.size(): {}".format(predictions.size()))
     return yh, predictions
 
 
-def run_batch(model, loss_func, x_batch, y_batch, epoch=None, optimizer=None, verbose=False):
+def run_batch(model, loss_func, x_batch, y_batch, i, epoch=None, optimizer=None, verbose=False):
     # print only once, across all batches and epochs
     label_str = "batch" if (verbose and not i and not epoch) else None
     yh_batch, predictions = model_wrapper(label_str, model, x_batch)
-    accuracy = (predictions == y_batch).float().mean()
+    if verbose and not i and not epoch:
+        print("in run_batch()")
+        print("    y_batch.size(): {}".format(y_batch.size()))
+        print("    yh_batch.size(): {}".format(yh_batch.size()))
+        print("    y_batch[0].size(): {}".format((iter(y_batch).__next__()).size()))
+        print("    yh_batch[0].size(): {}".format((iter(yh_batch).__next__()).size()))
 
+    # accuracy = (predictions == y_batch).float().mean()
+    # y_batch = y_batch.long()
     loss = loss_func(yh_batch, y_batch)
 
     if optimizer: # perform learning
@@ -36,14 +43,15 @@ def run_batch(model, loss_func, x_batch, y_batch, epoch=None, optimizer=None, ve
         loss.backward()
         optimizer.step()
 
-    return accuracy, loss.item()
+    return 0, loss.item()
+    # return accuracy, loss.item()
 
 
 def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validation_dataloader=None, training_statistics_arr=None, verbose=False):
     running_loss, running_accuracy = 0.0, 0.0
 
     for i, (x_batch, y_batch) in enumerate(dataloader):
-        accuracy, loss = run_batch(model, loss_func, x_batch, y_batch, epoch, optimizer, verbose)
+        accuracy, loss = run_batch(model, loss_func, x_batch, y_batch, i, epoch, optimizer, verbose)
         running_accuracy += accuracy
         running_loss += loss
 
@@ -89,7 +97,8 @@ def run_training(model, loss_func, dataloader, validation_dataloader, optimizer,
         }]
 
     for epoch in range(run_spec["epochs"]):
-        run_epoch(model, loss_func, dataloader, epoch, optimizer, validation_dataloader, training_statistics_arr, verbose)
+        run_epoch(model, loss_func, dataloader, epoch=epoch, optimizer=optimizer, 
+            validation_dataloader=validation_dataloader, training_statistics_arr=None, verbose=verbose)
     training_statistics_arr.pop() # get rid of last element, which has loss and accuracy values unset because of validation offset
 
     write_training_statistics(writer, training_statistics_arr)
@@ -126,19 +135,18 @@ def init_optimizer(run_spec, model):
 
 def init_model(model_type, dataset, dev):
     in_channels = 784 if dataset == "mnist" else 3072
-    out_channels = 10
 
     if model_type == "linear": 
-        return models.Linear(in_channels, out_channels).to(dev)
+        return models.Linear(in_channels, Constants.out_channels).to(dev)
 
     if model_type == "small_nn": 
-        return models.SmallNN(in_channels, out_channels).to(dev)
+        return models.SmallNN(in_channels, Constants.out_channels).to(dev)
     if model_type == "large_nn":
-        return models.LargeNN(in_channels, out_channels).to(dev)
+        return models.LargeNN(in_channels, Constants.out_channels).to(dev)
 
     if model_type == "small_cnn":
-        return models.SmallCNN(out_channels).to(dev)
+        return models.SmallCNN(Constants.out_channels).to(dev)
     if model_type == "best_cnn":
-        return models.BestCNN(out_channels).to(dev)
+        return models.BestCNN(Constants.out_channels).to(dev)
 
     raise Exception("Invalid model_str specification of {}.".format(model_type))

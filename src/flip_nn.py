@@ -36,7 +36,8 @@ def main(run_spec):
         train_dl, valid_dl, test_dl, dev, reshape, 
         hflip_train_dl, hflip_valid_dl, hflip_test_dl, verbose=True)
 
-    loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
+    # loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
+    loss_func = torch.nn.L1Loss()
     model = build_model.init_model(run_spec["model_str"], dataset, dev)
     optimizer = build_model.init_optimizer(run_spec, model)
 
@@ -44,6 +45,22 @@ def main(run_spec):
     visualize.show_images(writer, images, title="original_2", verbose=True)
     visualize.show_images(writer, hflip_images, title="flipped_2", verbose=True)
     visualize.show_graph(writer, model, images)
+
+    last_epoch_stats = build_model.run_training(model, loss_func, train_dlr, valid_dlr, optimizer, writer, run_spec, verbose=True)[-1]
+    accuracy, loss = build_model.run_epoch(model, loss_func, test_dlr, verbose=True)
+
+    print("Final model statistics:")
+    print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
+    print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
+    print("    train/val difference: {}".format(
+        last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
+    print("    test accuracy: {}".format(accuracy))
+
+
+    writer.add_hparams(run_spec, {'accuracy': accuracy})
+    writer.close()
+    print("========================= End of Run =========================\n")
+
 
 if __name__ == "__main__":
     main({

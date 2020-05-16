@@ -26,20 +26,20 @@ class SmallNN(nn.Module):
 class LargeNN(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.l1 = nn.Linear(in_channels, 256)
-        self.l2 = nn.Linear(256, 256)
-        self.l3 = nn.Linear(256, 256)
-        self.l4 = nn.Linear(256, 256)
-        self.l5 = nn.Linear(256, 256)
-        self.l6 = nn.Linear(256, out_channels) 
+        self.l1 = nn.Linear(in_channels, 1024)
+        self.l2 = nn.Linear(1024, 1024)
+        self.l3 = nn.Linear(1024, out_channels) 
+
+        # self.do = nn.Dropout(0.3)
+        # self.bn = nn.BatchNorm2d(1024)
 
     def forward(self, xb):
         a1 = F.relu(self.l1(xb))
+        # a1 = self.bn(a1)
         a2 = F.relu(self.l2(a1))
-        a3 = F.relu(self.l3(a2))
-        a4 = F.relu(self.l4(a3))
-        a5 = F.relu(self.l5(a4))
-        return self.l6(a5)
+        # a2 = self.bn(a2)
+        # a2 = self.do(a2)
+        return self.l3(a2)
 
 
 class SmallCNN(nn.Module):
