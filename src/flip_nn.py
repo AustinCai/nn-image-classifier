@@ -15,29 +15,35 @@ import build_model
 # TODO: new CNN that outputs image predictions
 # TODO: fold into training process
 def main(run_spec):
+    dataset = "cifar10"
+
+    writer = SummaryWriter(
+        Path(__file__).parent.resolve() / '../runs/flip-nn-test-{}'.format(
+        datetime.datetime.now().strftime("%H:%M:%S")))
+
     print("Using GPU: {}".format(torch.cuda.is_available()))
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     baseline_transforms = data_loading.init_baseline_transforms()
     train_dl, valid_dl, test_dl = data_loading.build_dl(
-        {"augmentation": "none", "batch_size": 64}, "cifar10", baseline_transforms)
+        {"augmentation": "none"}, dataset, baseline_transforms, shuffle=False)
     hflip_train_dl, hflip_valid_dl, hflip_test_dl = data_loading.build_dl(
-        {"augmentation": "hflip_all", "batch_size": 64}, "cifar10", baseline_transforms)
+        {"augmentation": "hflip_all"}, dataset, baseline_transforms, shuffle=False)
 
     reshape = False if "cnn" in run_spec["model_str"] else True
-    raw_dl, train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
+    print("before wrap_dl()")
+    train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
         train_dl, valid_dl, test_dl, dev, reshape, 
-        hflip_train_dl, hflip_valid_dl, hflip_test_dl)
+        hflip_train_dl, hflip_valid_dl, hflip_test_dl, verbose=True)
 
     loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
     model = build_model.init_model(run_spec["model_str"], dataset, dev)
     optimizer = build_model.init_optimizer(run_spec, model)
 
-    images, hflip_images = iter(raw_dl).__next__()
-    visualize.show_images(writer, images, title="original")
-    visualize.show_images(writer, hflip_images, title="flipped")
-
-    visualize.show_graph(writer, model, images, run_spec["batch_size"])
+    images, hflip_images = iter(train_dlr).__next__()
+    visualize.show_images(writer, images, title="original_2", verbose=True)
+    visualize.show_images(writer, hflip_images, title="flipped_2", verbose=True)
+    visualize.show_graph(writer, model, images)
 
 if __name__ == "__main__":
     main({

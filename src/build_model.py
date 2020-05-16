@@ -6,6 +6,8 @@ import time
 import visualize
 import models
 
+from util import Constants
+
 # def seed(s):
 #     torch.manual_seed(s)
 
@@ -50,7 +52,7 @@ def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validati
     if validation_dataloader:
         epoch_validation_accuracy, epoch_validation_loss = run_epoch(model, loss_func, validation_dataloader)
 
-    if training_statistics_arr and epoch:
+    if training_statistics_arr and epoch != None:
         training_statistics_arr[-1]["loss"] = epoch_loss
         training_statistics_arr[-1]["accuracy"] = epoch_accuracy.item()
         training_statistics_arr.append({"loss": None, "accuracy": None,

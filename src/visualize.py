@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 import time
 
+from util import Constants
+
 # def seed(s):
 #     np.random.seed(s)
 
@@ -28,10 +30,12 @@ def show_images(writer, images, title="Images", verbose=False):
     '''
     start_time = time.time()
 
+    images = images.view(Constants.batch_size, Constants.cifar10_channels, \
+        Constants.cifar10_x, Constants.cifar10_y) 
     norm_min, norm_max = -1, 1
     img_grid = torchvision.utils.make_grid(images, normalize=True, range=(norm_min, norm_max))
     if verbose: 
-        print("In visualize.show_inputs_and_graph().")
+        print("In visualize.show_images(title={}).".format(title))
         print("    images.shape: {}.".format(images.shape))
         print("    img_grid.shape: {}.".format(img_grid.shape))
 
@@ -41,14 +45,14 @@ def show_images(writer, images, title="Images", verbose=False):
     print("    visualize.show_images() completed in {} seconds.".format(time.time() - start_time))
 
 
-def show_graph(writer, model, images, train_batch_size):
+def show_graph(writer, model, images):
     start_time = time.time()
 
     # hack, only one of these works, will investigate why later
     try:
         writer.add_graph(model, images) # works for CNN
     except:
-        writer.add_graph(model, images.view(train_batch_size, -1)) # works for NN 
+        writer.add_graph(model, images.view(Constants.batch_size, -1)) # works for NN 
     print("    visualize.show_graph() completed in {} seconds.".format(time.time() - start_time))   
 
 

@@ -1,5 +1,13 @@
 import sys
 
+class Constants:
+    cifar10_x = 32
+    cifar10_y = 32
+    cifar10_channels = 3
+    batch_size = 64
+
+    # constant for dev
+
 #Util
 def assert_params(run_specifications, dataset):
     assert (dataset in {"mnist", "cifar10"}), "Invalid dataset specification of {}".format(dataset)

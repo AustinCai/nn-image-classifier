@@ -64,7 +64,7 @@ def main(run_specifications, dataset="cifar10", args=None):
         train_dl, valid_dl, test_dl = data_loading.build_dl(
             run_spec, dataset, baseline_transforms, args.verbose)
         reshape = False if "cnn" in run_spec["model_str"] else True
-        raw_dl, train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
+        train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
             train_dl, valid_dl, test_dl, dev, reshape, args.verbose)
 
         loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
@@ -72,9 +72,9 @@ def main(run_specifications, dataset="cifar10", args=None):
         optimizer = build_model.init_optimizer(run_spec, model)
 
         # takes 3 minutes to run, comment if not needed
-        images, _ = iter(raw_dl).__next__()
+        images, _ = iter(train_dlr).__next__()
         visualize.show_images(writer, images, title="Images", verbose=args.verbose)
-        visualize.show_graph(writer, model, images, run_spec["batch_size"])
+        visualize.show_graph(writer, model, images)
 
         last_epoch_stats = build_model.run_training(
             model, loss_func, train_dlr, valid_dlr, optimizer, writer, run_spec, verbose=args.verbose)[-1]
