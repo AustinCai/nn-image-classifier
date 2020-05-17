@@ -12,7 +12,7 @@ from util import Objects
 # def seed(s):
 #     torch.manual_seed(s)
 
-def model_wrapper(label_str, model, x):
+def model_wrapper(model, x, label_str=None):
          
     yh = model(x)
     predictions = torch.argmax(yh, dim=1)
@@ -24,13 +24,8 @@ def model_wrapper(label_str, model, x):
     return yh, predictions
 
 
-def run_batch(model, loss_func, x_batch, y_batch, i, epoch=None, optimizer=None, verbose=False):
-    # print only once, across all batches and epochs
-    label_str = "batch" if (verbose and not i and not epoch) else None
-    yh_batch, predictions = model_wrapper(label_str, model, x_batch)
-    if verbose and not i and not epoch:
-        print("in run_batch()")
-        print("    y_batch.size(): {}".format(y_batch.size()))
+def run_batch(model, loss_func, x_batch, y_batch, optimizer=None, verbose=False):
+    yh_batch, predictions = model_wrapper(model, x_batch)
 
     accuracy = (predictions == y_batch).float().mean()
     loss = loss_func(yh_batch, y_batch)
@@ -43,11 +38,14 @@ def run_batch(model, loss_func, x_batch, y_batch, i, epoch=None, optimizer=None,
     return accuracy, loss.item()
 
 
-def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validation_dataloader=None, training_statistics_arr=None, verbose=False):
+def run_epoch(model, loss_func, dataloader, 
+    optimizer=None, validation_dataloader=None, training_statistics_arr=None, verbose=False, fast=False):
     running_loss, running_accuracy = 0.0, 0.0
 
     for i, (x_batch, y_batch) in enumerate(dataloader):
-        accuracy, loss = run_batch(model, loss_func, x_batch, y_batch, i, epoch, optimizer, verbose)
+        if i > 10 and fast:
+            break
+        accuracy, loss = run_batch(model, loss_func, x_batch, y_batch, optimizer, verbose)
         running_accuracy += accuracy
         running_loss += loss
 
@@ -56,7 +54,7 @@ def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validati
     if validation_dataloader:
         epoch_validation_accuracy, epoch_validation_loss = run_epoch(model, loss_func, validation_dataloader)
 
-    if training_statistics_arr and epoch != None:
+    if training_statistics_arr:
         training_statistics_arr[-1]["loss"] = epoch_loss
         training_statistics_arr[-1]["accuracy"] = epoch_accuracy.item()
         training_statistics_arr.append({"loss": None, "accuracy": None,
@@ -64,14 +62,14 @@ def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validati
             "validation_accuracy": epoch_validation_accuracy.item()
             })
 
-        print("    Epoch {}: train acc {}, val acc {} || train loss {}, val loss {}.".format(epoch+1,
+        print("    Epoch {}: train acc {}, val acc {} || train loss {}, val loss {}.".format(len(training_statistics_arr)-1,
             training_statistics_arr[-2]["accuracy"], training_statistics_arr[-2]["validation_accuracy"], 
             training_statistics_arr[-2]["loss"], training_statistics_arr[-2]["validation_loss"]))
 
     return epoch_accuracy, epoch_loss
 
 
-def run_training(model, loss_func, dataloader, validation_dataloader, optimizer, epochs, writer, verbose=False):
+def run_training(model, loss_func, dataloader, validation_dataloader, optimizer, args):
     start_time = time.time()
 
     '''
@@ -90,33 +88,15 @@ def run_training(model, loss_func, dataloader, validation_dataloader, optimizer,
         "validation_accuracy": "NA" # val accuracy of epoch 1 defined as NA
         }]
 
-    for epoch in range(epochs):
+    for epoch in range(args.epochs):
         run_epoch(model, loss_func, dataloader, 
-            epoch=epoch, optimizer=optimizer, validation_dataloader=validation_dataloader, 
-            training_statistics_arr=training_statistics_arr, verbose=verbose)
+            optimizer=optimizer, validation_dataloader=validation_dataloader, 
+            training_statistics_arr=training_statistics_arr, verbose=args.verbose, fast=args.fast)
     training_statistics_arr.pop() # get rid of last element, which has loss and accuracy values unset because of validation offset
 
-    write_training_statistics(writer, training_statistics_arr)
     print("Training completed in {} seconds.".format(time.time() - start_time))
 
     return training_statistics_arr
-
-
-def write_training_statistics(writer, training_statistics_arr):
-    # This loop exclude the last entry training_statistics_arr, which has undefined train accuracy and loss.
-    # See validation offset comment. 
-    for epoch in range(len(training_statistics_arr)-1): 
-        epoch_stats = training_statistics_arr[epoch]
-
-        writer.add_scalars(
-            "Validation vs. Train Accuracy", 
-            {"validation": epoch_stats["validation_accuracy"], "train": epoch_stats["accuracy"]}, 
-            global_step=epoch+1)
-        writer.add_scalar('Accuracy/Train', epoch_stats["accuracy"], global_step=epoch+1)
-        writer.add_scalar('Accuracy/Validation', epoch_stats["validation_accuracy"], global_step=epoch+1)
-        writer.add_scalar('Loss/Train', epoch_stats["loss"], global_step=epoch+1)   
-        if (epoch): # validation of first epoch is undefined
-            writer.add_scalar('Loss/Validation', epoch_stats["validation_loss"], global_step=epoch+1) 
 
 
 def init_optimizer(optimizer_str, learning_rate, model):

@@ -10,6 +10,7 @@ import util
 import data_loading
 import visualize
 import build_model
+import models
 
 from util import Constants
 
@@ -27,10 +28,10 @@ def get_args(arguments):
     '''
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-v', '--verbose', help='Print debugging output', action='count', default=0)
-    parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=3)
-    parser.add_argument('-l', '--load_model', help = 'Load a specific model', type = str)
-    # parser.add_argument('-f', '--fast', help = 'Disables some output to increase runtime', type = str)
+    parser.add_argument('-v', '--verbose', help='Print debugging output', action='store_true')
+    parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=10)
+    parser.add_argument('-l', '--load_model', help = 'Load a specific model', type=str)
+    parser.add_argument('-f', '--fast', help = 'Fast testing mode, does not properly train model.', action='store_true')
 
     args = parser.parse_args(arguments)
     return args
@@ -70,7 +71,7 @@ def main(run_specifications, args=None):
 
         writer = SummaryWriter(
             Path(__file__).parent.resolve() / '../runs/{}-{}e-{}lr-{}-{}-{}'.format(
-            run_spec["model_str"], run_spec["epochs"], run_spec["lr"], 
+            run_spec["model_str"], args.epochs, run_spec["lr"], 
             run_spec["augmentation"], run_spec["optimizer"],
             datetime.datetime.now().strftime("%H:%M:%S")))
 
@@ -81,32 +82,32 @@ def main(run_specifications, args=None):
 
         loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
         
+        model = build_model.init_model(run_spec["model_str"])
         if args.load_model:
-            model = TheModelClass(*args, **kwargs)
             model.load_state_dict(torch.load(
-                Path(__file__).parent.resolve() / '../saved_models/{}.'.format(args.load_model)))
+                Path(__file__).parent.resolve() / '../{}'.format(args.load_model)))
             model.eval() # sets dropout and batch normalization layers
-        else:
-            model = build_model.init_model(run_spec["model_str"])
 
         optimizer = build_model.init_optimizer(run_spec["optimizer"], run_spec["lr"], model)
 
-        # takes 3 minutes to run, comment if not needed
-        images, _ = iter(train_dlr).__next__()
-        visualize.show_images(writer, images, title="Images", verbose=args.verbose)
-        visualize.show_graph(writer, model, images)
+        if not args.fast:
+            images, _ = iter(train_dlr).__next__()
+            visualize.show_images(writer, images, title="Images", verbose=args.verbose)
+            visualize.show_graph(writer, model, images)
 
         print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
-            run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], run_spec["epochs"]))
+            run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], args.epochs))
         training_statistics_arr = build_model.run_training(
-            model, loss_func, train_dlr, valid_dlr, optimizer, run_spec["epochs"], writer, verbose=args.verbose)
-        # build_model.write_training_statistics(writer, training_statistics_arr)
+            model, loss_func, train_dlr, valid_dlr, optimizer, args)
+        
+        visualize.write_training_statistics(writer, training_statistics_arr)
+
         accuracy, loss = build_model.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
 
         torch.save(model.state_dict(),             
-            Path(__file__).parent.resolve() / '../saved_models/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
-            run_spec["model_str"], run_spec["epochs"], run_spec["lr"], 
-            run_spec["augmentation"], Constants.batch_size, run_spec["optimizer"],
+            Path(__file__).parent.resolve() / '../saved_models/{}-{}e-{}lr-{}-{}-{}'.format(
+            run_spec["model_str"], args.epochs, run_spec["lr"], 
+            run_spec["augmentation"], run_spec["optimizer"],
             datetime.datetime.now().strftime("%H:%M:%S")))
 
         last_epoch_stats = training_statistics_arr[-1]
@@ -122,8 +123,7 @@ if __name__ == "__main__":
     print("args: {}".format(args))
     main(run_specifications = [
             {
-                "model_str": "best_cnn", 
-                "epochs": 2, 
+                "model_str": "best_cnn",  
                 "lr": 1e-3, 
                 "augmentation": "random",
                 "optimizer": "adam"

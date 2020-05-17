@@ -1,6 +1,7 @@
 *.log*
 *data*
 *runs*
+*saved*
 *venv*
 *__pycache__*
 /.ipynb_checkpoints/

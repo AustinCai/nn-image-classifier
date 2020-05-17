@@ -18,21 +18,6 @@ class Constants:
     dataset_str = "cifar10"
     
 
-# def assert_params(run_specifications, dataset):
-#     assert (dataset in {"mnist", "cifar10"}), "Invalid dataset specification of {}".format(dataset)
-
-#     valid_specs = {
-#         "model_str": {"small_nn", "large_nn", "linear", "small_cnn", "best_cnn"},
-#         "augmentation": {"none", "vflip", "hflip", "contrast", "random"},
-#         "optimizer": {"sgd", "adam"}
-#     }
-
-#     for i, run_spec in enumerate(run_specifications):
-#         for spec_to_check, valid_values in valid_specs.items():
-#             assert (run_spec[spec_to_check] in valid_values), \
-#                 "Invalid {} specification of {}".format(spec_to_check, run_spec[spec_to_check])
-
-
 def print_vm_info():
     '''Prints GPU and RAM info of the connected Google Colab VM.''' 
     gpu_info = get_ipython().getoutput('nvidia-smi')
