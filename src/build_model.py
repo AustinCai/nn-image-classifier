@@ -7,6 +7,7 @@ import visualize
 import models
 
 from util import Constants
+from util import Objects
 
 # def seed(s):
 #     torch.manual_seed(s)
@@ -30,12 +31,8 @@ def run_batch(model, loss_func, x_batch, y_batch, i, epoch=None, optimizer=None,
     if verbose and not i and not epoch:
         print("in run_batch()")
         print("    y_batch.size(): {}".format(y_batch.size()))
-        print("    yh_batch.size(): {}".format(yh_batch.size()))
-        print("    y_batch[0].size(): {}".format((iter(y_batch).__next__()).size()))
-        print("    yh_batch[0].size(): {}".format((iter(yh_batch).__next__()).size()))
 
-    # accuracy = (predictions == y_batch).float().mean()
-    # y_batch = y_batch.long()
+    accuracy = (predictions == y_batch).float().mean()
     loss = loss_func(yh_batch, y_batch)
 
     if optimizer: # perform learning
@@ -43,8 +40,7 @@ def run_batch(model, loss_func, x_batch, y_batch, i, epoch=None, optimizer=None,
         loss.backward()
         optimizer.step()
 
-    return 0, loss.item()
-    # return accuracy, loss.item()
+    return accuracy, loss.item()
 
 
 def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validation_dataloader=None, training_statistics_arr=None, verbose=False):
@@ -75,10 +71,8 @@ def run_epoch(model, loss_func, dataloader, epoch=None, optimizer=None, validati
     return epoch_accuracy, epoch_loss
 
 
-def run_training(model, loss_func, dataloader, validation_dataloader, optimizer, writer, run_spec, verbose=False):
+def run_training(model, loss_func, dataloader, validation_dataloader, optimizer, epochs, writer, verbose=False):
     start_time = time.time()
-    print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
-        run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], run_spec["epochs"]))
 
     '''
     Validation Offset:
@@ -93,16 +87,16 @@ def run_training(model, loss_func, dataloader, validation_dataloader, optimizer,
         "loss": None, # will be replaced, implementing the validation offset
         "accuracy": None, # will be replaced, implementing the validation offset
         "validation_loss": "NA", # val loss of epoch 1 defined as NA
-        "validation_accuracy": 0.0 # val accuracy of epoch 1 defined as 0
+        "validation_accuracy": "NA" # val accuracy of epoch 1 defined as NA
         }]
 
-    for epoch in range(run_spec["epochs"]):
-        run_epoch(model, loss_func, dataloader, epoch=epoch, optimizer=optimizer, 
-            validation_dataloader=validation_dataloader, training_statistics_arr=None, verbose=verbose)
+    for epoch in range(epochs):
+        run_epoch(model, loss_func, dataloader, 
+            epoch=epoch, optimizer=optimizer, validation_dataloader=validation_dataloader, 
+            training_statistics_arr=training_statistics_arr, verbose=verbose)
     training_statistics_arr.pop() # get rid of last element, which has loss and accuracy values unset because of validation offset
 
     write_training_statistics(writer, training_statistics_arr)
-    writer.close()
     print("Training completed in {} seconds.".format(time.time() - start_time))
 
     return training_statistics_arr
@@ -125,28 +119,28 @@ def write_training_statistics(writer, training_statistics_arr):
             writer.add_scalar('Loss/Validation', epoch_stats["validation_loss"], global_step=epoch+1) 
 
 
-def init_optimizer(run_spec, model):
-    if run_spec["optimizer"] == "sgd":
-        return torch.optim.SGD(model.parameters(), lr=run_spec["lr"])
-    if run_spec["optimizer"] == "adam":
-        return torch.optim.Adam(model.parameters(), lr=run_spec["lr"])
-    raise Exception("Invalid optimizer specification of {}.".format(run_spec["optimizer"]))
+def init_optimizer(optimizer_str, learning_rate, model):
+    if optimizer_str == "sgd":
+        return torch.optim.SGD(model.parameters(), lr=learning_rate)
+    if optimizer_str == "adam":
+        return torch.optim.Adam(model.parameters(), lr=learning_rate)
+    raise Exception("Invalid optimizer specification of {}.".format(optimizer_str))
 
 
-def init_model(model_type, dataset, dev):
-    in_channels = 784 if dataset == "mnist" else 3072
+def init_model(model_type):
+    in_channels = 784 if Constants.dataset_str == "mnist" else 3072
 
     if model_type == "linear": 
-        return models.Linear(in_channels, Constants.out_channels).to(dev)
+        return models.Linear(in_channels, Constants.out_channels).to(Objects.dev)
 
     if model_type == "small_nn": 
-        return models.SmallNN(in_channels, Constants.out_channels).to(dev)
+        return models.SmallNN(in_channels, Constants.out_channels).to(Objects.dev)
     if model_type == "large_nn":
-        return models.LargeNN(in_channels, Constants.out_channels).to(dev)
+        return models.LargeNN(in_channels, Constants.out_channels).to(Objects.dev)
 
     if model_type == "small_cnn":
-        return models.SmallCNN(Constants.out_channels).to(dev)
+        return models.SmallCNN(Constants.out_channels).to(Objects.dev)
     if model_type == "best_cnn":
-        return models.BestCNN(Constants.out_channels).to(dev)
+        return models.BestCNN(Constants.out_channels).to(Objects.dev)
 
     raise Exception("Invalid model_str specification of {}.".format(model_type))

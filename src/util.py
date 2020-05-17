@@ -1,28 +1,36 @@
 import sys
+import torch
+
+class Objects:
+    dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 class Constants:
     cifar10_x = 32
     cifar10_y = 32
     cifar10_channels = 3
+
     batch_size = 64
-    out_channels = 3072
+    out_channels = 10
 
-    # constant for dev
+    randaugment_n = 1
+    randaugment_m = 2
 
-#Util
-def assert_params(run_specifications, dataset):
-    assert (dataset in {"mnist", "cifar10"}), "Invalid dataset specification of {}".format(dataset)
+    dataset_str = "cifar10"
+    
 
-    valid_specs = {
-        "model_str": {"small_nn", "large_nn", "linear", "small_cnn", "best_cnn"},
-        "augmentation": {"none", "vflip", "hflip", "contrast", "random"},
-        "optimizer": {"sgd", "adam"}
-    }
+# def assert_params(run_specifications, dataset):
+#     assert (dataset in {"mnist", "cifar10"}), "Invalid dataset specification of {}".format(dataset)
 
-    for i, run_spec in enumerate(run_specifications):
-        for spec_to_check, valid_values in valid_specs.items():
-            assert (run_spec[spec_to_check] in valid_values), \
-                "Invalid {} specification of {}".format(spec_to_check, run_spec[spec_to_check])
+#     valid_specs = {
+#         "model_str": {"small_nn", "large_nn", "linear", "small_cnn", "best_cnn"},
+#         "augmentation": {"none", "vflip", "hflip", "contrast", "random"},
+#         "optimizer": {"sgd", "adam"}
+#     }
+
+#     for i, run_spec in enumerate(run_specifications):
+#         for spec_to_check, valid_values in valid_specs.items():
+#             assert (run_spec[spec_to_check] in valid_values), \
+#                 "Invalid {} specification of {}".format(spec_to_check, run_spec[spec_to_check])
 
 
 def print_vm_info():

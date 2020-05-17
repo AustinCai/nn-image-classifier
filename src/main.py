@@ -11,6 +11,8 @@ import data_loading
 import visualize
 import build_model
 
+from util import Constants
+
 # FFNNs behave deterministically without having to seed across all files
 # seeding across all files is not sufficient for CNNs and randomly augmented models to behave deterministically
 # def seed_all(s):
@@ -25,21 +27,32 @@ def get_args(arguments):
     '''
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument(
-        '-v', '--verbose', help='Print debugging output', action='count', default=0)
-    parser.add_argument(
-        '-e', '--epochs', help='Epochs to run training', type=int, default=3)
+    parser.add_argument('-v', '--verbose', help='Print debugging output', action='count', default=0)
+    parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=3)
+    parser.add_argument('-l', '--load_model', help = 'Load a specific model', type = str)
+    # parser.add_argument('-f', '--fast', help = 'Disables some output to increase runtime', type = str)
+
     args = parser.parse_args(arguments)
     return args
 
 
-def main(run_specifications, dataset="cifar10", args=None):
+def print_final_model_stats(last_epoch_stats, accuracy):
+    print("Final model statistics:")
+    print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
+    print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
+    if isinstance(last_epoch_stats["validation_accuracy"], float):
+        print("    train/val difference: {}".format(
+            last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
+    print("    test accuracy: {}".format(accuracy))
+
+
+def main(run_specifications, args=None):
     '''Iterates through each model configuration specified by run_specifications. 
     Initializes and trains each model with its specified configuration, 
     evaluates each on the test set, and records its performance to 
     tensorboard.
     '''
-    util.assert_params(run_specifications, dataset)
+    # util.assert_params(run_specifications, dataset)
     
     print("Using GPU: {}".format(torch.cuda.is_available()))
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -56,37 +69,48 @@ def main(run_specifications, dataset="cifar10", args=None):
         # seed_all(42)
 
         writer = SummaryWriter(
-            Path(__file__).parent.resolve() / '../runs/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
+            Path(__file__).parent.resolve() / '../runs/{}-{}e-{}lr-{}-{}-{}'.format(
             run_spec["model_str"], run_spec["epochs"], run_spec["lr"], 
-            run_spec["augmentation"], run_spec["batch_size"], run_spec["optimizer"],
+            run_spec["augmentation"], run_spec["optimizer"],
             datetime.datetime.now().strftime("%H:%M:%S")))
 
         train_dl, valid_dl, test_dl = data_loading.build_dl(
-            run_spec, dataset, baseline_transforms, args.verbose)
+            run_spec["augmentation"], baseline_transforms, args.verbose)
         reshape = False if "cnn" in run_spec["model_str"] else True
-        train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
-            train_dl, valid_dl, test_dl, dev, reshape, args.verbose)
+        train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(train_dl, valid_dl, test_dl, reshape, args.verbose)
 
         loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
-        model = build_model.init_model(run_spec["model_str"], dataset, dev)
-        optimizer = build_model.init_optimizer(run_spec, model)
+        
+        if args.load_model:
+            model = TheModelClass(*args, **kwargs)
+            model.load_state_dict(torch.load(
+                Path(__file__).parent.resolve() / '../saved_models/{}.'.format(args.load_model)))
+            model.eval() # sets dropout and batch normalization layers
+        else:
+            model = build_model.init_model(run_spec["model_str"])
+
+        optimizer = build_model.init_optimizer(run_spec["optimizer"], run_spec["lr"], model)
 
         # takes 3 minutes to run, comment if not needed
         images, _ = iter(train_dlr).__next__()
         visualize.show_images(writer, images, title="Images", verbose=args.verbose)
         visualize.show_graph(writer, model, images)
 
-        last_epoch_stats = build_model.run_training(
-            model, loss_func, train_dlr, valid_dlr, optimizer, writer, run_spec, verbose=args.verbose)[-1]
+        print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
+            run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], run_spec["epochs"]))
+        training_statistics_arr = build_model.run_training(
+            model, loss_func, train_dlr, valid_dlr, optimizer, run_spec["epochs"], writer, verbose=args.verbose)
+        # build_model.write_training_statistics(writer, training_statistics_arr)
         accuracy, loss = build_model.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
 
-        print("Final model statistics:")
-        print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
-        print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
-        print("    train/val difference: {}".format(
-            last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
-        print("    test accuracy: {}".format(accuracy))
+        torch.save(model.state_dict(),             
+            Path(__file__).parent.resolve() / '../saved_models/{}-{}e-{}lr-{}-{}bs-{}-{}'.format(
+            run_spec["model_str"], run_spec["epochs"], run_spec["lr"], 
+            run_spec["augmentation"], Constants.batch_size, run_spec["optimizer"],
+            datetime.datetime.now().strftime("%H:%M:%S")))
 
+        last_epoch_stats = training_statistics_arr[-1]
+        print_final_model_stats(last_epoch_stats, accuracy)
 
         writer.add_hparams(run_spec, {'accuracy': accuracy})
         writer.close()
@@ -99,15 +123,12 @@ if __name__ == "__main__":
     main(run_specifications = [
             {
                 "model_str": "best_cnn", 
-                "epochs": 3, 
+                "epochs": 2, 
                 "lr": 1e-3, 
-                "augmentation": 
-                "hflip", 
-                "batch_size": 64, 
+                "augmentation": "random",
                 "optimizer": "adam"
             }
         ],
-        dataset="cifar10", 
         args=args
         )
 
