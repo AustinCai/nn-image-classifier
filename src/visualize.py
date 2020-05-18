@@ -88,3 +88,13 @@ def print_save_cmatrix(writer, y_batch_test, yh_batch_test):
     writer.add_image("Confusion Matrix", cmatrix_test_toprint, dataformats='HW')
     writer.close()
     print(cmatrix_test)
+
+
+def print_final_model_stats(last_epoch_stats, accuracy):
+    print("Final model statistics:")
+    print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
+    print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
+    if isinstance(last_epoch_stats["validation_accuracy"], float):
+        print("    train/val difference: {}".format(
+            last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
+    print("    test accuracy: {}".format(accuracy))

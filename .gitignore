@@ -1,6 +1,7 @@
 *.log*
 *data*
 *runs*
+*models*
 *saved*
 *venv*
 *__pycache__*

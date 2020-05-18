@@ -2,6 +2,8 @@ import torch
 from torch import nn 
 import torch.nn.functional as F
 import time
+from pathlib import Path
+import datetime
 
 import visualize
 import models
@@ -18,8 +20,10 @@ def model_wrapper(model, x, label_str=None):
     predictions = torch.argmax(yh, dim=1)
 
     if label_str:
-        print("    x_{}.size(): {}".format(label_str, x.size()))   
-        print("    yh_{}.size(): {}".format(label_str, yh.size()))
+        if not label_str == "":
+            label_str = "_" + label_str
+        print("    x{}.size(): {}".format(label_str, x.size()))   
+        print("    yh{}.size(): {}".format(label_str, yh.size()))
         print("    predictions.size(): {}".format(predictions.size()))
     return yh, predictions
 
@@ -124,3 +128,29 @@ def init_model(model_type):
         return models.BestCNN(Constants.out_channels).to(Objects.dev)
 
     raise Exception("Invalid model_str specification of {}.".format(model_type))
+
+
+def save_model(model, optimizer, loss, run_spec, args):
+    save_path = Path("models") / '{}-{}e-{}lr-{}-{}-{}'.format(
+        run_spec["model_str"], args.epochs, run_spec["lr"], run_spec["augmentation"], 
+        run_spec["optimizer"], datetime.datetime.now().strftime("%H:%M:%S"))
+
+    torch.save({
+            'epoch': args.epochs,
+            'model_state_dict': model.state_dict(), 
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss
+        }, save_path)
+
+
+def load_model(path):
+    model = init_model("best_cnn")
+    optimizer = init_optimizer("adam", Constants.learning_rate, model)
+
+    saved_model_dict = torch.load(Path(__file__).parent.resolve() / "../{}".format(path))
+    model.load_state_dict(saved_model_dict['model_state_dict'])
+    optimizer.load_state_dict(saved_model_dict['optimizer_state_dict'])
+    epoch = saved_model_dict['epoch']
+    loss = saved_model_dict['loss']
+
+    return model, optimizer, epoch, loss

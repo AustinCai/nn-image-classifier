@@ -12,7 +12,14 @@ import visualize
 import build_model
 import models
 
+import pickle
+import gzip
+from PIL import Image
+import torchvision.transforms as tfs
+from pathlib import Path
+
 from util import Constants
+from util import Objects
 
 # FFNNs behave deterministically without having to seed across all files
 # seeding across all files is not sufficient for CNNs and randomly augmented models to behave deterministically
@@ -30,21 +37,12 @@ def get_args(arguments):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-v', '--verbose', help='Print debugging output', action='store_true')
     parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=10)
-    parser.add_argument('-l', '--load_model', help = 'Load a specific model', type=str)
+    parser.add_argument('-l', '--load_model', help = 'Load a specific model to continue training.', type=str)
+    parser.add_argument('-s', '--save_model', help = 'Save model after training.', action='store_true')
     parser.add_argument('-f', '--fast', help = 'Fast testing mode, does not properly train model.', action='store_true')
 
     args = parser.parse_args(arguments)
     return args
-
-
-def print_final_model_stats(last_epoch_stats, accuracy):
-    print("Final model statistics:")
-    print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
-    print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
-    if isinstance(last_epoch_stats["validation_accuracy"], float):
-        print("    train/val difference: {}".format(
-            last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
-    print("    test accuracy: {}".format(accuracy))
 
 
 def main(run_specifications, args=None):
@@ -78,7 +76,8 @@ def main(run_specifications, args=None):
         train_dl, valid_dl, test_dl = data_loading.build_dl(
             run_spec["augmentation"], baseline_transforms, args.verbose)
         reshape = False if "cnn" in run_spec["model_str"] else True
-        train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(train_dl, valid_dl, test_dl, reshape, args.verbose)
+        train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
+            train_dl, valid_dl, test_dl, reshape, args.verbose)
 
         loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
         
@@ -104,14 +103,23 @@ def main(run_specifications, args=None):
 
         accuracy, loss = build_model.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
 
-        torch.save(model.state_dict(),             
-            Path(__file__).parent.resolve() / '../saved_models/{}-{}e-{}lr-{}-{}-{}'.format(
-            run_spec["model_str"], args.epochs, run_spec["lr"], 
-            run_spec["augmentation"], run_spec["optimizer"],
-            datetime.datetime.now().strftime("%H:%M:%S")))
+        if args.save_model:
+            build_model.save_model(model, optimizer, training_statistics_arr[-1]["loss"], run_spec, args)
+
+            # save_path = Path(__file__).parent.resolve() / '../models/{}-{}e-{}lr-{}-{}-{}'.format(
+            #     run_spec["model_str"], args.epochs, run_spec["lr"], 
+            #     run_spec["augmentation"], run_spec["optimizer"],
+            #     datetime.datetime.now().strftime("%H:%M:%S"))
+
+            # torch.save({
+            #         'epoch': args.epochs,
+            #         'model_state_dict': model.state_dict(), 
+            #         'optimizer_state_dict': optimizer.state_dict(),
+            #         'loss': training_statistics_arr[-1]["loss"]
+            #     }, save_path)
 
         last_epoch_stats = training_statistics_arr[-1]
-        print_final_model_stats(last_epoch_stats, accuracy)
+        visualize.print_final_model_stats(last_epoch_stats, accuracy)
 
         writer.add_hparams(run_spec, {'accuracy': accuracy})
         writer.close()
@@ -125,7 +133,7 @@ if __name__ == "__main__":
             {
                 "model_str": "best_cnn",  
                 "lr": 1e-3, 
-                "augmentation": "random",
+                "augmentation": "none",
                 "optimizer": "adam"
             }
         ],

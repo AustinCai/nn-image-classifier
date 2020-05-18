@@ -1,8 +1,12 @@
 import sys
 import torch
+import pickle
+import torchvision.transforms as tfs
+
 
 class Objects:
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    transform_pil_image_to_tensor = tfs.Compose([tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
 
 class Constants:
     cifar10_x = 32
@@ -10,6 +14,7 @@ class Constants:
     cifar10_channels = 3
 
     batch_size = 64
+    learning_rate = 1e-3
     out_channels = 10
 
     randaugment_n = 1
@@ -36,3 +41,10 @@ def print_vm_info():
         print('menu, and then select High-RAM in the Runtime shape dropdown. Then, re-execute this cell.')
     else:
         print('You are using a high-RAM runtime!')
+
+
+def pickle_save(data, folder_path, identifier, data_str):
+    with open(folder_path / "{}-{}".format(data_str, identifier), 'wb') as data_file:
+        pickle.dump(data, data_file, protocol=pickle.HIGHEST_PROTOCOL)
+
+
