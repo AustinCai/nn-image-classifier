@@ -9,7 +9,7 @@ from pathlib import Path
 import util 
 import data_loading
 import visualize
-import build_model
+import training
 import models
 
 import pickle
@@ -28,7 +28,7 @@ from util import Objects
 #     np.random.seed(s)
 #     visualize.seed(s)
 #     data_loading.seed(s)
-#     build_model.seed(s)
+#     training.seed(s)
 
 def get_args(arguments):
     '''Parse the arguments passed via the command line.
@@ -81,13 +81,13 @@ def main(run_specifications, args=None):
 
         loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
         
-        model = build_model.init_model(run_spec["model_str"])
+        model = training.init_model(run_spec["model_str"])
         if args.load_model:
             model.load_state_dict(torch.load(
                 Path(__file__).parent.resolve() / '../{}'.format(args.load_model)))
             model.eval() # sets dropout and batch normalization layers
 
-        optimizer = build_model.init_optimizer(run_spec["optimizer"], run_spec["lr"], model)
+        optimizer = training.init_optimizer(run_spec["optimizer"], run_spec["lr"], model)
 
         if not args.fast:
             images, _ = iter(train_dlr).__next__()
@@ -96,27 +96,15 @@ def main(run_specifications, args=None):
 
         print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
             run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], args.epochs))
-        training_statistics_arr = build_model.run_training(
+        training_statistics_arr = training.run_training(
             model, loss_func, train_dlr, valid_dlr, optimizer, args)
         
         visualize.write_training_statistics(writer, training_statistics_arr)
 
-        accuracy, loss = build_model.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
+        accuracy, loss = training.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
 
         if args.save_model:
-            build_model.save_model(model, optimizer, training_statistics_arr[-1]["loss"], run_spec, args)
-
-            # save_path = Path(__file__).parent.resolve() / '../models/{}-{}e-{}lr-{}-{}-{}'.format(
-            #     run_spec["model_str"], args.epochs, run_spec["lr"], 
-            #     run_spec["augmentation"], run_spec["optimizer"],
-            #     datetime.datetime.now().strftime("%H:%M:%S"))
-
-            # torch.save({
-            #         'epoch': args.epochs,
-            #         'model_state_dict': model.state_dict(), 
-            #         'optimizer_state_dict': optimizer.state_dict(),
-            #         'loss': training_statistics_arr[-1]["loss"]
-            #     }, save_path)
+            training.save_model(model, optimizer, training_statistics_arr[-1]["loss"], run_spec, args)
 
         last_epoch_stats = training_statistics_arr[-1]
         visualize.print_final_model_stats(last_epoch_stats, accuracy)

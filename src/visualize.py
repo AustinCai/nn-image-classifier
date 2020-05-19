@@ -7,8 +7,15 @@ import time
 
 from util import Constants
 
+
+# helpers for train_model.py and train_gmaxup.py ========================================================
+# =======================================================================================================
+
 # def seed(s):
 #     np.random.seed(s)
+
+# helpers for train_model.py ============================================================================
+# =======================================================================================================
 
 def format_and_show(img, one_channel=False):
     '''Resizes the passed img parameter so that it can be accepted by 
@@ -98,3 +105,17 @@ def print_final_model_stats(last_epoch_stats, accuracy):
         print("    train/val difference: {}".format(
             last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
     print("    test accuracy: {}".format(accuracy))
+
+# helpers for train_gmaxup.py ===========================================================================
+# =======================================================================================================
+
+
+# helpers for testing ===================================================================================
+# =======================================================================================================
+
+def test():
+    pass
+
+
+if __name__ == "__main__":
+    test()

@@ -3,6 +3,8 @@ import torch
 import pickle
 import torchvision.transforms as tfs
 
+# helpers for train_model.py and train_gmaxup.py ========================================================
+# =======================================================================================================
 
 class Objects:
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -42,9 +44,26 @@ def print_vm_info():
     else:
         print('You are using a high-RAM runtime!')
 
+# helpers for train_gmaxup.py ===========================================================================
+# =======================================================================================================
 
 def pickle_save(data, folder_path, identifier, data_str):
     with open(folder_path / "{}-{}".format(data_str, identifier), 'wb') as data_file:
         pickle.dump(data, data_file, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+# helpers for train_gmaxup.py ===========================================================================
+# =======================================================================================================
+
+
+# helpers for testing ===================================================================================
+# =======================================================================================================
+
+def test():
+    pass
+
+
+if __name__ == "__main__":
+    test()
 
 

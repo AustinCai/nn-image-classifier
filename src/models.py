@@ -1,6 +1,8 @@
 from torch import nn 
 import torch.nn.functional as F
 
+# helpers for train_model.py and train_gmaxup.py =======================================================
+
 class Linear(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -61,7 +63,8 @@ class SmallCNN(nn.Module):
         return self.fc2(a3)
 
 
-# https://appliedmachinelearning.blog/2018/03/24/achieving-90-accuracy-in-object-recognition-task-on-cifar-10-dataset-with-keras-convolutional-neural-networks/
+# https://appliedmachinelearning.blog/2018/03/24/achieving-90-accuracy-in-object-recognition
+# -task-on-cifar-10-dataset-with-keras-convolutional-neural-networks/
 class BestCNN(nn.Module):
     def __init__(self, out_channels):
         super().__init__()
@@ -106,3 +109,21 @@ class BestCNN(nn.Module):
 
         a9 = a8.view(-1, 8192)
         return self.fc1(a9)
+
+# helpers for train_model.py ============================================================================
+# =======================================================================================================
+
+
+# helpers for train_gmaxup.py ===========================================================================
+# =======================================================================================================
+
+
+# helpers for testing ===================================================================================
+# =======================================================================================================
+
+def test():
+    pass
+
+
+if __name__ == "__main__":
+    test()

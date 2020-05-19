@@ -14,7 +14,7 @@ import torchvision.transforms as tfs
 import util 
 import data_loading
 import visualize
-import build_model
+import training
 import augmentations
 
 from util import Constants
@@ -34,6 +34,7 @@ def get_args(arguments):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-v', '--verbose', help='Print debugging output', action='store_true')
     parser.add_argument('-l', '--load_model', help = 'Load a specific model', type=str)
+    parser.add_argument('-f', '--fast', help = 'Fast testing mode, does not properly train model.', action='store_true')
     args = parser.parse_args(arguments)
     return args
 
@@ -63,14 +64,17 @@ def run_gmaxup_on_sample(x, y, loss_func, model, augmented_batch, augment_stats=
         x_aug_tensor = Objects.transform_pil_image_to_tensor(x_aug_img).view(1, 3, 32, 32).to(Objects.dev)
 
         y = torch.tensor([y]).to(Objects.dev)
-        yh, predictions = build_model.model_wrapper(model, x_aug_tensor)
+        yh, predictions = training.model_wrapper(model, x_aug_tensor)
         loss = loss_func(yh, y).item()
 
         pred_correct = predictions.item() == y.item
 
+        # plt.imshow(x_aug_img)
+        # plt.show()
+
         if loss > max_loss:
             max_loss = loss
-            max_xy_tuple = (x_aug_img, y.item())
+            max_xy_tuple = (x_aug_tensor.cpu(), y.item())
             max_augment = augmentations.augment_list_str()[op_num]
 
     augmented_batch.append(max_xy_tuple)
@@ -86,7 +90,7 @@ def main(args):
     if not args.load_model:
         raise Exception("Must specify a trained model to load.")
 
-    model, optimizer, epoch, loss = build_model.load_model(args.load_model)
+    model, optimizer, epoch, loss = training.load_model(args.load_model)
     loss_func = torch.nn.CrossEntropyLoss()
 
     # pil_to_tensor = tfs.Compose([tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))]) # redundant with baseline_transforms
@@ -104,7 +108,7 @@ def main(args):
 
         if not sample_num % 100:
             print(sample_num)
-        if sample_num > 100:
+        if args.fast and sample_num > 50:
             break
 
         run_gmaxup_on_sample(x, y, loss_func, model, augmented_batch, augment_stats)
@@ -117,9 +121,15 @@ def main(args):
     print("DONE: len(augmented_batch): {}".format(len(augmented_batch)))
     print_augment_stats(augment_stats)
 
+    # print(augmented_batch[0])
+
+    # save augmented data
     data = {"augmented_batch": augmented_batch, "stats": augment_stats}
     identifier = "len{}-{}".format(len(augmented_batch), datetime.datetime.now().strftime("%m.%d.%Y-%H:%M:%S"))
     util.pickle_save(data, Path("augmented_data"), identifier, "aug-batch")
+
+    augmented_cifar10_ds = data_loading.DatasetFromTupleList(augmented_batch)
+    print(augmented_cifar10_ds[0])
 
 if __name__ == "__main__":
     args = get_args(sys.argv[1:])
