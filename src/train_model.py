@@ -45,7 +45,7 @@ def get_args(arguments):
     return args
 
 
-def main(run_specifications, args=None):
+def main(run_specifications, dataset_str="cifar10", args=None):
     '''Iterates through each model configuration specified by run_specifications. 
     Initializes and trains each model with its specified configuration, 
     evaluates each on the test set, and records its performance to 
@@ -74,13 +74,14 @@ def main(run_specifications, args=None):
             datetime.datetime.now().strftime("%H:%M:%S")))
 
         train_dl, valid_dl, test_dl = data_loading.build_dl(
-            run_spec["augmentation"], baseline_transforms, args.verbose)
+            run_spec["augmentation"], baseline_transforms, dataset_str, verbose=args.verbose)
         reshape = False if "cnn" in run_spec["model_str"] else True
         train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
             train_dl, valid_dl, test_dl, reshape, args.verbose)
 
         loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
         
+        # TODO - fix this; load model for training
         model = training.init_model(run_spec["model_str"])
         if args.load_model:
             model.load_state_dict(torch.load(
@@ -92,6 +93,7 @@ def main(run_specifications, args=None):
         if not args.fast:
             images, _ = iter(train_dlr).__next__()
             visualize.show_images(writer, images, title="Images", verbose=args.verbose)
+            print(images.shape)
             visualize.show_graph(writer, model, images)
 
         print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
@@ -125,6 +127,7 @@ if __name__ == "__main__":
                 "optimizer": "adam"
             }
         ],
-        args=args
+        dataset_str="cifar10",
+        args=args,
         )
 

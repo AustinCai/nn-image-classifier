@@ -2,6 +2,7 @@ import sys
 import torch
 import pickle
 import torchvision.transforms as tfs
+from pathlib import Path
 
 # helpers for train_model.py and train_gmaxup.py ========================================================
 # =======================================================================================================
@@ -44,6 +45,11 @@ def print_vm_info():
     else:
         print('You are using a high-RAM runtime!')
 
+
+def pickle_load(path):
+    with open(path, 'rb') as handle:
+        return pickle.load(handle)
+
 # helpers for train_gmaxup.py ===========================================================================
 # =======================================================================================================
 
@@ -61,7 +67,6 @@ def pickle_save(data, folder_path, identifier, data_str):
 
 def test():
     pass
-
 
 if __name__ == "__main__":
     test()
