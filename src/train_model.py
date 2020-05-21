@@ -38,6 +38,8 @@ def get_args(arguments):
     parser.add_argument('-v', '--verbose', help='Print debugging output', action='store_true')
     parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=10)
     parser.add_argument('-l', '--load_model', help = 'Load a specific model to continue training.', type=str)
+    parser.add_argument('-a', '--augmentation', help = 'Specify augmentation to use.', type=str, default="random")
+    parser.add_argument('-d', '--dataset', help = 'Specify which dataset to train over.', type=str, default="cifar10")
     parser.add_argument('-s', '--save_model', help = 'Save model after training.', action='store_true')
     parser.add_argument('-f', '--fast', help = 'Fast testing mode, does not properly train model.', action='store_true')
 
@@ -45,89 +47,74 @@ def get_args(arguments):
     return args
 
 
-def main(run_specifications, dataset_str="cifar10", args=None):
+def main(args=None):
     '''Iterates through each model configuration specified by run_specifications. 
     Initializes and trains each model with its specified configuration, 
     evaluates each on the test set, and records its performance to 
     tensorboard.
     '''
-    # util.assert_params(run_specifications, dataset)
     
     print("Using GPU: {}".format(torch.cuda.is_available()))
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
     baseline_transforms = data_loading.init_baseline_transforms()
 
-    for run_spec in run_specifications:
-        # Notes on deterministic randomness:
-        # seeds here are necessary and sufficient for determinism across FFNN models run within a single execution and across executions
-        # using CNNs or a random augmentation policy destroys determinism, both across models run within a single execution and across executions
-        # random seeding across all src files did not change this behavior
-        torch.manual_seed(42)
-        np.random.seed(42)
-        # seed_all(42)
+    # Notes on deterministic randomness:
+    # seeds here are necessary and sufficient for determinism across FFNN models run within a single execution and across executions
+    # using CNNs or a random augmentation policy destroys determinism, both across models run within a single execution and across executions
+    # random seeding across all src files did not change this behavior
+    torch.manual_seed(42)
+    np.random.seed(42)
+    # seed_all(42)
 
-        writer = SummaryWriter(
-            Path(__file__).parent.resolve() / '../runs/{}-{}e-{}lr-{}-{}-{}'.format(
-            run_spec["model_str"], args.epochs, run_spec["lr"], 
-            run_spec["augmentation"], run_spec["optimizer"],
-            datetime.datetime.now().strftime("%H:%M:%S")))
+    model = training.init_model()
+    optimizer = training.init_optimizer(model)
+    if args.load_model:
+        model, optimizer, pretrained_epochs, _ = training.load_model(args.load_model, model, optimizer)
 
-        train_dl, valid_dl, test_dl = data_loading.build_dl(
-            run_spec["augmentation"], baseline_transforms, dataset_str, verbose=args.verbose)
-        reshape = False if "cnn" in run_spec["model_str"] else True
-        train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
-            train_dl, valid_dl, test_dl, reshape, args.verbose)
+    optional_str = "-pretrained_{}e".format(pretrained_epochs) if args.load_model else ""
+    augmentation_str = "gmaxup" if args.dataset == "gmaxup_cifar10" else ""
 
-        loss_func = torch.nn.CrossEntropyLoss() # TODO: hyperparameterize 
-        
-        # TODO - fix this; load model for training
-        model = training.init_model(run_spec["model_str"])
-        if args.load_model:
-            model.load_state_dict(torch.load(
-                Path(__file__).parent.resolve() / '../{}'.format(args.load_model)))
-            model.eval() # sets dropout and batch normalization layers
+    save_str = '{}-{}e-{}{}-{}'.format(
+        Constants.model_str, args.epochs, augmentation_str, 
+        optional_str, datetime.datetime.now().strftime("%H:%M-%-m.%d.%y"))
 
-        optimizer = training.init_optimizer(run_spec["optimizer"], run_spec["lr"], model)
+    writer = SummaryWriter(Path("runs") / save_str)
 
-        if not args.fast:
-            images, _ = iter(train_dlr).__next__()
-            visualize.show_images(writer, images, title="Images", verbose=args.verbose)
-            print(images.shape)
-            visualize.show_graph(writer, model, images)
+    train_dl, valid_dl, test_dl = data_loading.build_dl(baseline_transforms, args)
+    train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
+        train_dl, valid_dl, test_dl, not "cnn" in Constants.model_str, args.verbose)
 
-        print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
-            run_spec["model_str"], run_spec["optimizer"], run_spec["augmentation"], args.epochs))
-        training_statistics_arr = training.run_training(
-            model, loss_func, train_dlr, valid_dlr, optimizer, args)
-        
-        visualize.write_training_statistics(writer, training_statistics_arr)
+    loss_func = torch.nn.CrossEntropyLoss() 
 
-        accuracy, loss = training.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
+    if not args.fast:
+        images, _ = iter(train_dlr).__next__()
+        visualize.show_images(writer, images, title="Images", verbose=args.verbose)
+        print(images.shape)
+        visualize.show_graph(writer, model, images)
 
-        if args.save_model:
-            training.save_model(model, optimizer, training_statistics_arr[-1]["loss"], run_spec, args)
+    print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
+        Constants.model_str, Constants.optimizer_str, args.augmentation, args.epochs))
+    training_statistics_arr = training.run_training(
+        model, loss_func, train_dlr, valid_dlr, optimizer, args)
+    
+    visualize.write_training_statistics(writer, training_statistics_arr)
 
-        last_epoch_stats = training_statistics_arr[-1]
-        visualize.print_final_model_stats(last_epoch_stats, accuracy)
+    accuracy, loss = training.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
 
-        writer.add_hparams(run_spec, {'accuracy': accuracy})
-        writer.close()
-        print("========================= End of Run =========================\n")
+    if args.save_model:
+        training.save_model(model, optimizer, training_statistics_arr[-1]["loss"], save_str, args)
+
+    last_epoch_stats = training_statistics_arr[-1]
+    visualize.print_final_model_stats(last_epoch_stats, accuracy)
+
+    # writer.add_hparams(args, {'accuracy': accuracy})
+    writer.close()
+    print("========================= End of Run =========================\n")
 
 
 if __name__ == "__main__":
     args = get_args(sys.argv[1:])
     print("args: {}".format(args))
-    main(run_specifications = [
-            {
-                "model_str": "best_cnn",  
-                "lr": 1e-3, 
-                "augmentation": "none",
-                "optimizer": "adam"
-            }
-        ],
-        dataset_str="cifar10",
-        args=args,
-        )
+    main(args=args)
 

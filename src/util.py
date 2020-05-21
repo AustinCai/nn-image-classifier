@@ -19,6 +19,8 @@ class Constants:
     batch_size = 64
     learning_rate = 1e-3
     out_channels = 10
+    optimizer_str = "adam"
+    model_str = "best_cnn"
 
     randaugment_n = 1
     randaugment_m = 2

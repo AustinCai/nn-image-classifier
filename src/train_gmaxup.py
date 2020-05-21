@@ -87,7 +87,9 @@ def run_gmaxup_on_sample(x, y, loss_func, model, augmented_batch, augment_stats=
 def main(args):
 
     model_str = args.load_model if args.load_model else "saved_models/best_cnn-10e-0.001lr-none-adam-15:45:51"
-    model, optimizer, epoch, loss = training.load_model(model_str)
+    model = init_model("best_cnn")
+    optimizer = init_optimizer("adam", Constants.learning_rate, model)
+    model, optimizer, epoch, loss = training.load_model(model_str, model, optimizer)
     loss_func = torch.nn.CrossEntropyLoss()
 
     writer = SummaryWriter(Path(__file__).parent.resolve() / '../runs/gen_maxup')

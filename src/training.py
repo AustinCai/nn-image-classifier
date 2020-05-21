@@ -14,8 +14,7 @@ from util import Objects
 # def seed(s):
 #     torch.manual_seed(s)
 
-def model_wrapper(model, x, label_str=None):
-         
+def model_wrapper(model, x, label_str=None): 
     yh = model(x)
     predictions = torch.argmax(yh, dim=1)
 
@@ -103,50 +102,44 @@ def run_training(model, loss_func, dataloader, validation_dataloader, optimizer,
     return training_statistics_arr
 
 
-def init_optimizer(optimizer_str, learning_rate, model):
-    if optimizer_str == "sgd":
-        return torch.optim.SGD(model.parameters(), lr=learning_rate)
-    if optimizer_str == "adam":
-        return torch.optim.Adam(model.parameters(), lr=learning_rate)
+def init_optimizer(model):
+    if Constants.optimizer_str == "sgd":
+        return torch.optim.SGD(model.parameters(), lr=Constants.learning_rate)
+    if Constants.optimizer_str == "adam":
+        return torch.optim.Adam(model.parameters(), lr=Constants.learning_rate)
     raise Exception("Invalid optimizer specification of {}.".format(optimizer_str))
 
 
-def init_model(model_type):
+def init_model():
     in_channels = 784 if Constants.dataset_str == "mnist" else 3072
 
-    if model_type == "linear": 
+    if Constants.model_str == "linear": 
         return models.Linear(in_channels, Constants.out_channels).to(Objects.dev)
 
-    if model_type == "small_nn": 
+    if Constants.model_str == "small_nn": 
         return models.SmallNN(in_channels, Constants.out_channels).to(Objects.dev)
-    if model_type == "large_nn":
+    if Constants.model_str == "large_nn":
         return models.LargeNN(in_channels, Constants.out_channels).to(Objects.dev)
 
-    if model_type == "small_cnn":
+    if Constants.model_str == "small_cnn":
         return models.SmallCNN(Constants.out_channels).to(Objects.dev)
-    if model_type == "best_cnn":
+    if Constants.model_str == "best_cnn":
         return models.BestCNN(Constants.out_channels).to(Objects.dev)
 
-    raise Exception("Invalid model_str specification of {}.".format(model_type))
+    raise Exception("Invalid model_str specification of {}.".format(Constants.model_str))
 
 
-def save_model(model, optimizer, loss, run_spec, args):
-    save_path = Path("models") / '{}-{}e-{}lr-{}-{}-{}'.format(
-        run_spec["model_str"], args.epochs, run_spec["lr"], run_spec["augmentation"], 
-        run_spec["optimizer"], datetime.datetime.now().strftime("%H:%M:%S"))
+def save_model(model, optimizer, loss, save_str, args):
 
     torch.save({
             'epoch': args.epochs,
             'model_state_dict': model.state_dict(), 
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss
-        }, save_path)
+        }, Path("models") / save_str)
 
 
-def load_model(path):
-    model = init_model("best_cnn")
-    optimizer = init_optimizer("adam", Constants.learning_rate, model)
-
+def load_model(path, model, optimizer):
     saved_model_dict = torch.load(Path(__file__).parent.resolve() / "../{}".format(path))
     model.load_state_dict(saved_model_dict['model_state_dict'])
     optimizer.load_state_dict(saved_model_dict['optimizer_state_dict'])
