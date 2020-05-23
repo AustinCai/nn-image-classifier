@@ -12,9 +12,7 @@ class Objects:
     transform_pil_image_to_tensor = tfs.Compose([tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
 
 class Constants:
-    cifar10_x = 32
-    cifar10_y = 32
-    cifar10_channels = 3
+    cifar10_dim = (32, 32, 3)
 
     batch_size = 64
     learning_rate = 1e-3

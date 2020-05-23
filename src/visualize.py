@@ -39,8 +39,8 @@ def show_images(writer, images, batch_size, title="Images", verbose=False):
     '''
     start_time = time.time()
 
-    images = images.view(batch_size, Constants.cifar10_channels, \
-        Constants.cifar10_x, Constants.cifar10_y) 
+    images = images.view(batch_size, Constants.cifar10_dim[2], \
+        Constants.cifar10_dim[0], Constants.cifar10_dim[1]) 
     norm_min, norm_max = -1, 1
     img_grid = torchvision.utils.make_grid(images, normalize=True, range=(norm_min, norm_max))
     if verbose: 

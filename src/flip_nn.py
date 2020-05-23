@@ -5,30 +5,27 @@ from torch import nn
 import data_loading
 import util 
 from util import Constants
+from util import Objects
 from pathlib import Path
 import visualize
 
-def main():
-	# https://discuss.pytorch.org/t/how-to-manually-set-the-weights-in-a-two-layer-linear-model/45902
-	flattened_dim = Constants.cifar10_x * Constants.cifar10_y * Constants.cifar10_channels
-	original_side_len = Constants.cifar10_x
+def build_vflip_matrix(img_dim, flat_dim):
+	vflip_matrix_list = []
+	for r in range(flat_dim):
+		row = [0. for _ in range(flat_dim)]
+		row[flat_dim - img_dim*(math.floor(r/img_dim)+1) + r%img_dim] = 1.
+		vflip_matrix_list.append(row)
+	return torch.FloatTensor(vflip_matrix_list).to(Objects.dev)
 
-	print("Using GPU: {}".format(torch.cuda.is_available()))
-	writer = SummaryWriter(Path("runs") / "flip_nn_test")
-
-	model = torch.nn.Sequential(nn.Linear(flattened_dim, flattened_dim, bias=False))
-
+def build_hflip_matrix(img_dim, flat_dim):
 	hflip_matrix_list = []
-	for r in range(flattened_dim):
-	    row = [0. for _ in range(flattened_dim)]
-	    row[original_side_len + original_side_len*math.floor(r/original_side_len) - r%original_side_len - 1] = 1.
+	for r in range(flat_dim):
+	    row = [0. for _ in range(flat_dim)]
+	    row[img_dim*(math.floor(r/img_dim)+1) - r%img_dim - 1] = 1.
 	    hflip_matrix_list.append(row)
+	return torch.FloatTensor(hflip_matrix_list).to(Objects.dev)
 
-	hflip_matrix_tensor = torch.FloatTensor(hflip_matrix_list)
-
-	with torch.no_grad():
-	    model[0].weight = nn.Parameter(hflip_matrix_tensor.to(util.Objects.dev))
-
+def load_singleton_batch_from_cifar10():
 	baseline_transforms = data_loading.init_baseline_transforms()
 	train_dl, valid_dl, test_dl = data_loading.build_dl(baseline_transforms, "none", "cifar10")
 	train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
@@ -36,16 +33,34 @@ def main():
 
 	x_batch, y_batch = iter(train_dlr).__next__()
 	image = x_batch[0]
-	print(image.shape)
 
-	singleton_batch = image.view(1, -1)
+	return image.view(1, -1)
+
+def load_singleton_batch_dummy():
+	image_list = 3*[i for i in range(1,10)]
+	return torch.FloatTensor(image_list).view(1,-1).to(Objects.dev)
+
+
+def main():
+	# https://discuss.pytorch.org/t/how-to-manually-set-the-weights-in-a-two-layer-linear-model/45902
+	img_dim = Constants.cifar10_dim[0]
+	flat_dim = Constants.cifar10_dim[0] * Constants.cifar10_dim[1] * Constants.cifar10_dim[2]
+	# img_dim = 3
+	# flat_dim = 27
+
+	print("Using GPU: {}".format(torch.cuda.is_available()))
+	writer = SummaryWriter(Path("runs") / "flip_nn_test")
+
+	model = torch.nn.Sequential(nn.Linear(flat_dim, flat_dim, bias=False))
+
+	matrix = build_vflip_matrix(img_dim, flat_dim)
+	with torch.no_grad():
+	    model[0].weight = nn.Parameter(matrix)
+
+	singleton_batch = load_singleton_batch_from_cifar10()
 	visualize.show_images(writer, singleton_batch, 1, "original")
 
-	print(singleton_batch.shape)
 	singleton_batch_flipped = model(singleton_batch)
-	print(singleton_batch_flipped.shape)
-
-	# visualize 
 	visualize.show_images(writer, singleton_batch_flipped, 1, "flipped")
 
 if __name__ == "__main__":
