@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 import torchvision.transforms as tfs
+import random
 
 import util 
 import data_loading
@@ -25,7 +26,7 @@ import pickle
 import gzip
 from PIL import Image
 from collections import OrderedDict
-
+import heapq
 
 def get_args(arguments):
     '''Parse the arguments passed via the command line.
@@ -35,6 +36,8 @@ def get_args(arguments):
     parser.add_argument('-v', '--verbose', help='Print debugging output', action='store_true')
     parser.add_argument('-l', '--load_model', help = 'Load a specific model', type=str)
     parser.add_argument('-f', '--fast', help = 'Fast testing mode, does not properly train model.', action='store_true')
+    parser.add_argument('-c', '--composition', help = 'Number of augmentations in a composition.', type=int, default=2) #L in the paper
+    parser.add_argument('-m', '--multiplier', help = 'Number of augmented data points per input.', type=int, default=1) #S in the paper
     args = parser.parse_args(arguments)
     return args
 
@@ -46,21 +49,28 @@ def print_augment_stats(augment_stats):
         print("    average loss: {}".format(stats["average_loss"]))
 
 
-def run_gmaxup_on_sample(x, y, loss_func, model, augmented_batch, augment_stats=None):
-    x = np.transpose(np.reshape(x, (3, 32, 32)), (1, 2, 0))
-    x = Image.fromarray(x)
+def compose_transormations(op_idxs, x_img):
+    used_augments = []
 
-    max_loss = -1
-    max_xy_tuple = None
-    max_augment = None
-    max_pred_correct = None # whether the loss maximizing augmentation resulted in a correct classification
-
-    for op_num, ops in enumerate(augmentations.augment_list()):
-
-        (op, minval, maxval) = ops
+    for op_idx in op_idxs:
+        used_augments.append(augmentations.augment_list_str()[op_idx])
+        op, minval, maxval = augmentations.augment_list()[op_idx]
         val = (Constants.randaugment_m / 30) * float(maxval - minval) + minval
+        x_img = op(x_img, val)
 
-        x_aug_img = op(x, val)
+    return x_img, used_augments
+
+
+def run_gmaxup_on_sample(sample_num, x, y, loss_func, model, augmented_batch, args, augment_stats=None):
+    x_img = Image.fromarray(np.transpose(np.reshape(x, (3, 32, 32)), (1, 2, 0)))
+
+    xy_tuple_list_by_loss = []
+    heapq.heapify(xy_tuple_list_by_loss)
+
+    for c in range(4): # number of compositions to sample, C
+        op_idxs = random.sample(range(16), args.composition)
+        x_aug_img, used_augments = compose_transormations(op_idxs, x_img)
+
         # first dimension = 1 to simulate a batch size of 1
         x_aug_tensor = Objects.transform_pil_image_to_tensor(x_aug_img).view(1, 3, 32, 32).to(Objects.dev)
 
@@ -68,27 +78,25 @@ def run_gmaxup_on_sample(x, y, loss_func, model, augmented_batch, augment_stats=
         yh, predictions = training.model_wrapper(model, x_aug_tensor)
         loss = loss_func(yh, y).item()
 
-        pred_correct = predictions.item() == y.item
+        max_xy_tuple = (x_aug_tensor.squeeze().cpu(), y.item()) # squeeze() to undo the first dimension=1
+        
+        # sample_num+c is a unique integer to arbitrarily break ties
+        heapq.heappush(xy_tuple_list_by_loss, (loss, sample_num+c, used_augments, max_xy_tuple))
 
-        if loss > max_loss:
-            max_loss = loss
-            max_xy_tuple = (x_aug_tensor.squeeze().cpu(), y.item()) # squeeze() to undo the first dimension=1
-            max_augment = augmentations.augment_list_str()[op_num]
+    for loss, _, used_augments, xy_tuple in heapq.nlargest(args.multiplier, xy_tuple_list_by_loss):
+        augmented_batch.append(xy_tuple)
 
-    augmented_batch.append(max_xy_tuple)
-
-    if augment_stats:
-        augment_stats[max_augment]["count"] += 1
-        augment_stats[max_augment]["average_loss"] += max_loss
-        if not pred_correct:
-            augment_stats[max_augment]["incorrect_preds"] += 1 
+        if augment_stats:
+            for augment_str in used_augments:
+                augment_stats[augment_str]["count"] += 1
+                augment_stats[augment_str]["average_loss"] += loss
 
 
 def main(args):
 
     model_str = args.load_model if args.load_model else "saved_models/best_cnn-10e-0.001lr-none-adam-15:45:51"
-    model = init_model("best_cnn")
-    optimizer = init_optimizer("adam", Constants.learning_rate, model)
+    model = training.init_model()
+    optimizer = training.init_optimizer(model)
     model, optimizer, epoch, loss = training.load_model(model_str, model, optimizer)
     loss_func = torch.nn.CrossEntropyLoss()
 
@@ -111,10 +119,10 @@ def main(args):
 
             if not sample_num % 100:
                 print(sample_num)
-            if args.fast and sample_num > 200:
+            if args.fast and sample_num > 50:
                 break
 
-            run_gmaxup_on_sample(x, y, loss_func, model, augmented_batch, augment_stats)
+            run_gmaxup_on_sample(sample_num, x, y, loss_func, model, augmented_batch, args, augment_stats)
 
         for key in augment_stats:
             if augment_stats[key]["count"] > 0:
@@ -122,7 +130,7 @@ def main(args):
 
     augmented_cifar10_ds = data_loading.DatasetFromTupleList(augmented_batch)
     print(augmented_cifar10_ds[0])
-    with open(Path("gmaxup_data") / "gmaxup-data-batch", 'wb') as handle:
+    with open(Path("gmaxup_data") / "gmaxup_cifar10-{}l-{}s".format(args.composition, args.multiplier), 'wb') as handle:
         pickle.dump(augmented_cifar10_ds, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     print_augment_stats(augment_stats)

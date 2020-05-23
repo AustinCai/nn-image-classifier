@@ -208,22 +208,25 @@ def augment_list():  # 16 oeprations and their ranges
 
 def augment_list_str():
     l = [
-        "AutoContrast",
-        "Equalize",
-        "Invert",
-        "Rotate",
-        "Posterize",
-        "Solarize",
+        "AutoContrast", # in paper
+        "Equalize", # in paper
+        "Invert", # in paper
+        "Rotate", # in paper
+        "Posterize", # in paper
+        "Solarize", # in paper
         "SolarizeAdd",
-        "Color",
-        "Contrast",
-        "Brightness",
-        "Sharpness",
-        "ShearX",
-        "ShearY",
-        "CutoutAbs",
-        "TranslateXabs",
-        "TranslateYabs"
+        "Color", # in paper
+        "Contrast", # in paper
+        "Brightness", # in paper
+        "Sharpness", # in paper
+        "ShearX", # in paper
+        "ShearY", # in paper
+        "CutoutAbs", # in paper (as cutout)
+        "TranslateXabs", # in paper (as translateX)
+        "TranslateYabs" # in paper (as translateY)
+
+        # mixup
+
     ]
 
     return l

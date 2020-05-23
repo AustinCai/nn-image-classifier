@@ -38,7 +38,7 @@ def get_args(arguments):
     parser.add_argument('-v', '--verbose', help='Print debugging output', action='store_true')
     parser.add_argument('-e', '--epochs', help='Epochs to run training', type=int, default=10)
     parser.add_argument('-l', '--load_model', help = 'Load a specific model to continue training.', type=str)
-    parser.add_argument('-a', '--augmentation', help = 'Specify augmentation to use.', type=str, default="random")
+    parser.add_argument('-a', '--augmentation', help = 'Specify augmentation to use.', type=str, default="none")
     parser.add_argument('-d', '--dataset', help = 'Specify which dataset to train over.', type=str, default="cifar10")
     parser.add_argument('-s', '--save_model', help = 'Save model after training.', action='store_true')
     parser.add_argument('-f', '--fast', help = 'Fast testing mode, does not properly train model.', action='store_true')
@@ -72,16 +72,17 @@ def main(args=None):
     if args.load_model:
         model, optimizer, pretrained_epochs, _ = training.load_model(args.load_model, model, optimizer)
 
-    optional_str = "-pretrained_{}e".format(pretrained_epochs) if args.load_model else ""
-    augmentation_str = "gmaxup" if args.dataset == "gmaxup_cifar10" else ""
+    optional_str = "-pretrained_{}e-".format(pretrained_epochs) if args.load_model else ""
+    augmentation_str = "gmaxup" if args.dataset == "gmaxup_cifar10" else args.augmentation
 
-    save_str = '{}-{}e-{}{}-{}'.format(
+    save_str = '{}-{}e-{}-{}{}'.format(
         Constants.model_str, args.epochs, augmentation_str, 
         optional_str, datetime.datetime.now().strftime("%H:%M-%-m.%d.%y"))
 
     writer = SummaryWriter(Path("runs") / save_str)
 
-    train_dl, valid_dl, test_dl = data_loading.build_dl(baseline_transforms, args)
+    train_dl, valid_dl, test_dl = data_loading.build_dl(
+        baseline_transforms, args.augmentation, args.dataset, verbose=args.verbose)
     train_dlr, valid_dlr, test_dlr = data_loading.wrap_dl(
         train_dl, valid_dl, test_dl, not "cnn" in Constants.model_str, args.verbose)
 
@@ -89,7 +90,7 @@ def main(args=None):
 
     if not args.fast:
         images, _ = iter(train_dlr).__next__()
-        visualize.show_images(writer, images, title="Images", verbose=args.verbose)
+        visualize.show_images(writer, images, Constants.batch_size, title="Images", verbose=args.verbose)
         print(images.shape)
         visualize.show_graph(writer, model, images)
 

@@ -1,4 +1,6 @@
-#Visualize
+import matplotlib
+matplotlib.use('tkagg')  # Or any other X11 back-end
+
 import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,13 +33,13 @@ def format_and_show(img, one_channel=False):
         plt.imshow(np.transpose(npimg, (row_idx, col_idx, channel_idx)))
 
 
-def show_images(writer, images, title="Images", verbose=False):
+def show_images(writer, images, batch_size, title="Images", verbose=False):
     '''Displays the input images passed in through train_dl, both to the console
     and to tensorboard. 
     '''
     start_time = time.time()
 
-    images = images.view(Constants.batch_size, Constants.cifar10_channels, \
+    images = images.view(batch_size, Constants.cifar10_channels, \
         Constants.cifar10_x, Constants.cifar10_y) 
     norm_min, norm_max = -1, 1
     img_grid = torchvision.utils.make_grid(images, normalize=True, range=(norm_min, norm_max))
@@ -46,7 +48,7 @@ def show_images(writer, images, title="Images", verbose=False):
         print("    images.shape: {}.".format(images.shape))
         print("    img_grid.shape: {}.".format(img_grid.shape))
 
-    format_and_show(img_grid, one_channel=False)
+    # format_and_show(img_grid, one_channel=False)
     writer.add_image(title, img_grid)
 
     print("    visualize.show_images() completed in {} seconds.".format(time.time() - start_time))
