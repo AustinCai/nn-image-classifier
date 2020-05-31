@@ -4,14 +4,17 @@ import pickle
 import torchvision.transforms as tfs
 from pathlib import Path
 
+import augmentations
+
 # helpers for train_model.py and train_gmaxup.py ========================================================
 # =======================================================================================================
 
 class Objects:
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    transform_pil_image_to_tensor = tfs.Compose([tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
 
 class Constants:
+    save_str = "untitled_save_str"
+
     cifar10_dim = (32, 32, 3)
 
     batch_size = 64
@@ -24,7 +27,25 @@ class Constants:
     randaugment_m = 2
 
     dataset_str = "cifar10"
-    
+
+class BasicTransforms:
+    pil_image_to_tensor = tfs.Compose(
+        [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+    vflip = tfs.Compose(
+        [tfs.RandomVerticalFlip(p=0.5)] 
+        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+    hflip = tfs.Compose(
+        [tfs.RandomHorizontalFlip(p=0.5)] 
+        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+    contrast = tfs.Compose(
+        [tfs.ColorJitter(contrast=1.0)] 
+        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+    hflip_all = tfs.Compose(
+        [tfs.RandomHorizontalFlip(p=1.0)] 
+        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+    random = tfs.Compose(
+        [augmentations.RandAugment(Constants.randaugment_n, Constants.randaugment_m)] 
+        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
 
 def print_vm_info():
     '''Prints GPU and RAM info of the connected Google Colab VM.''' 
@@ -66,7 +87,7 @@ def pickle_save(data, folder_path, identifier, data_str):
 # =======================================================================================================
 
 def test():
-    pass
+    print(getattr(BasicTransforms, "vflip"))
 
 if __name__ == "__main__":
     test()

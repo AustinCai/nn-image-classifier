@@ -73,6 +73,20 @@ def Invert(img, _):
 def Equalize(img, _):
     return PIL.ImageOps.equalize(img)
 
+def SoftEqualize(img, _):
+    # print("SoftEqualize")
+
+    img_np = np.array(img).astype(np.int)
+    equal_img = PIL.ImageOps.equalize(img)
+    equal_img_np = np.array(equal_img).astype(np.int)
+    # print(type(img_np))
+    # print(img_np.shape)
+    # print(type(equal_img_np))
+    # print(equal_img_np.shape)
+    soft_equal_img_np = np.divide(np.add(img_np, equal_img_np), 2.0).astype(np.uint8)
+    # print(type(soft_equal_img_np))
+    # print(soft_equal_img_np.shape)
+    return Image.fromarray(soft_equal_img_np)
 
 def Flip(img, _):  # not from the paper
     return PIL.ImageOps.mirror(img)
@@ -161,75 +175,73 @@ def Identity(img, v):
     return img
 
 
-def augment_list():  # 16 oeprations and their ranges
-    # https://github.com/google-research/uda/blob/master/image/randaugment/policies.py#L57
-    # l = [
-    #     (Identity, 0., 1.0),
-    #     (ShearX, 0., 0.3),  # 0
-    #     (ShearY, 0., 0.3),  # 1
-    #     (TranslateX, 0., 0.33),  # 2
-    #     (TranslateY, 0., 0.33),  # 3
-    #     (Rotate, 0, 30),  # 4
-    #     (AutoContrast, 0, 1),  # 5
-    #     (Invert, 0, 1),  # 6
-    #     (Equalize, 0, 1),  # 7
-    #     (Solarize, 0, 110),  # 8
-    #     (Posterize, 4, 8),  # 9
-    #     # (Contrast, 0.1, 1.9),  # 10
-    #     (Color, 0.1, 1.9),  # 11
-    #     (Brightness, 0.1, 1.9),  # 12
-    #     (Sharpness, 0.1, 1.9),  # 13
-    #     # (Cutout, 0, 0.2),  # 14
-    #     # (SamplePairing(imgs), 0, 0.4),  # 15
-    # ]
+def augment_list(magnitude_range="orig"):  # 16 oeprations and their ranges
+    
+    bot = 0.6
+    top = 1.4
 
-    # https://github.com/tensorflow/tpu/blob/8462d083dd89489a79e3200bcc8d4063bf362186/models/official/efficientnet/autoaugment.py#L505
-    l = [
-        (AutoContrast, 0, 1),
-        (Equalize, 0, 1),
-        (Invert, 0, 1),
-        (Rotate, 0, 30),
-        (Posterize, 0, 4),
-        (Solarize, 0, 256),
-        (SolarizeAdd, 0, 110),
-        (Color, 0.1, 1.9),
-        (Contrast, 0.1, 1.9),
-        (Brightness, 0.1, 1.9),
-        (Sharpness, 0.1, 1.9),
-        (ShearX, 0., 0.3),
-        (ShearY, 0., 0.3),
-        (CutoutAbs, 0, 40),
-        (TranslateXabs, 0., 100),
-        (TranslateYabs, 0., 100),
-    ]
+    lists = {
+        'orig': [
+            (AutoContrast, 0, 1, "AutoContrast"),
+            (Equalize, 0, 1, "Equalize"),
+            (Invert, 0, 1, "Invert"),
+            (Rotate, 0, 30, "Rotate"),
+            (Posterize, 0, 4, "Posterize"),
+            (Solarize, 0, 256, "Solarize"),
+            (SolarizeAdd, 0, 110, "SolarizeAdd"),
+            (Color, 0.1, 1.9, "Color"),
+            (Contrast, 0.1, 1.9, "Contrast"),
+            (Brightness, 0.1, 1.9, "Brightness"),
+            (Sharpness, 0.1, 1.9, "Sharpness"),
+            (ShearX, 0., 0.3, "ShearX"),
+            (ShearY, 0., 0.3, "ShearY"),
+            (CutoutAbs, 0, 40, "CutoutAbs"),
+            (TranslateXabs, 0., 100, "TranslateXabs"),
+            (TranslateYabs, 0., 100, "TranslateYabs")
+        ],
 
-    return l
+        'reduced': [
+            (AutoContrast, 0, 1, "AutoContrast"),
+            (Equalize, 0, 1, "Equalize"),
+            # (Invert, 0, 1),
+            (Rotate, 0, 30, "Rotate"),
+            (Posterize, 2, 4, "Posterize"),
+            (Solarize, 128, 256, "SolarizeTop"),
+            (Solarize, 0, 128, "SolarizeBot"),
+            # (SolarizeAdd, 0, 28),
+            (Color, 0.5, 1.5, "Color"),
+            (Contrast, 0.5, 1.5, "Contrast"),
+            (Brightness, 0.5, 1.5, "Brightness"),
+            (Sharpness, 0.5, 1.5, "Sharpness"),
+            (ShearX, 0., 0.3, "ShearX"),
+            (ShearY, 0., 0.3, "ShearY"),
+            (CutoutAbs, 0, 20, "CutoutAbs"),
+            (TranslateXabs, 0., 70, "TranslateXabs"),
+            (TranslateYabs, 0., 70, "TranslateYabs"),
+        ],
 
+        'deterministic': [
+            # (AutoContrast, 0, 1, "AutoContrast"),
+            (SoftEqualize, 0, 1, "SoftEqualize"),
+            # (Invert, 0, 1),
+            (Rotate, 30, 30, "Rotate"),
+            (Posterize, 3, 3, "Posterize"),
+            (Solarize, 192, 192, "Solarize") if random.randint(0, 1) < 1 else (Solarize, 64, 64, "Solarize"),
+            # (SolarizeAdd, 0, 28),
+            (Color, top, top, "Color") if random.randint(0, 1) < 1 else (Color, bot, bot, "Color"),
+            (Contrast, top, top, "Contrast") if random.randint(0, 1) < 1 else (Contrast, bot, bot, "Contrast"),
+            (Brightness, 1.3, 1.3, "Brightness") if random.randint(0, 1) < 1 else (Brightness, 0.7, 0.7, "Brightness"),
+            (Sharpness, top, top, "Sharpness") if random.randint(0, 1) < 1 else (Sharpness, bot, bot, "Sharpness"),
+            (ShearX, 0.2, 0.2, "ShearX"),
+            (ShearY, 0.2, 0.2, "ShearY"),
+            (CutoutAbs, 7, 7, "CutoutAbs"),
+            (TranslateXabs, 7, 7, "TranslateXabs"),
+            (TranslateYabs, 7, 7, "TranslateYabs"),
+        ]
 
-def augment_list_str():
-    l = [
-        "AutoContrast", # in paper
-        "Equalize", # in paper
-        "Invert", # in paper
-        "Rotate", # in paper
-        "Posterize", # in paper
-        "Solarize", # in paper
-        "SolarizeAdd",
-        "Color", # in paper
-        "Contrast", # in paper
-        "Brightness", # in paper
-        "Sharpness", # in paper
-        "ShearX", # in paper
-        "ShearY", # in paper
-        "CutoutAbs", # in paper (as cutout)
-        "TranslateXabs", # in paper (as translateX)
-        "TranslateYabs" # in paper (as translateY)
+    }
 
-        # mixup
-
-    ]
-
-    return l
+    return lists[magnitude_range]
 
 
 class Lighting(object):
