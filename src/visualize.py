@@ -62,24 +62,34 @@ def show_graph(writer, model, images):
     print("    visualize.show_graph() completed in {} seconds.".format(time.time() - start_time))   
 
 
-def write_training_statistics(writer, training_statistics_arr):
-    # This loop exclude the last entry training_statistics_arr, which has undefined train accuracy and loss.
-    # See validation offset comment. 
-    for epoch in range(len(training_statistics_arr)-1): 
-        epoch_stats = training_statistics_arr[epoch]
 
-        if isinstance(epoch_stats["validation_accuracy"], float): # skip if "NA"
-            writer.add_scalars("Validation vs. Train Accuracy", 
-                {"validation": epoch_stats["validation_accuracy"], "train": epoch_stats["accuracy"]}, 
-                global_step=epoch+1)
-            writer.add_scalar('Accuracy/Validation', epoch_stats["validation_accuracy"], global_step=epoch+1)
+def write_epoch_stats(writer, epoch, validation_acc, validation_loss, train_acc, train_loss):
+    writer.add_scalar('Accuracy/Validation', validation_acc, epoch)
+    writer.add_scalar('Loss/Validation', validation_loss, epoch)
+    writer.add_scalar('Accuracy/Train', train_acc, epoch)
+    writer.add_scalar('Loss/Train', train_loss, epoch)
 
-        writer.add_scalar('Accuracy/Train', epoch_stats["accuracy"], global_step=epoch+1)
-        writer.add_scalar('Loss/Train', epoch_stats["loss"], global_step=epoch+1)   
-        
-        if (epoch): # validation of first epoch is undefined
-            writer.add_scalar('Loss/Validation', epoch_stats["validation_loss"], global_step=epoch+1) 
+def write_epoch_statistics(writer, epoch, epoch_stats):
+    writer.add_scalar('Accuracy/Train', 
+        epoch_stats["accuracy"],
+        global_step=epoch+1)
+    writer.add_scalar('Loss/Train', 
+        epoch_stats["loss"], 
+        global_step=epoch+1)   
+    
+    if (epoch): # validation of first epoch is undefined
+        writer.add_scalar('Loss/Validation', 
+            epoch_stats["validation_loss"], 
+            global_step=epoch+1) 
 
+    if isinstance(epoch_stats["validation_accuracy"], float): # skip if "NA"
+        writer.add_scalars("Validation vs. Train Accuracy", 
+            {"validation": epoch_stats["validation_accuracy"], 
+            "train": epoch_stats["accuracy"]}, 
+            global_step=epoch+1)
+        writer.add_scalar('Accuracy/Validation', 
+            epoch_stats["validation_accuracy"], 
+            global_step=epoch+1)
 
 def normalize_cmatrix(cmatrix_test, norm_max):
     return np.floor(((norm_max-.0001)/cmatrix_test.max())*cmatrix_test).astype(int) + 1

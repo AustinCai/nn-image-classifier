@@ -17,14 +17,13 @@ class Constants:
 
     cifar10_dim = (32, 32, 3)
 
-    batch_size = 64
+    batch_size = 128
     learning_rate = 1e-3
     out_channels = 10
-    optimizer_str = "adam"
     model_str = "best_cnn"
 
-    randaugment_n = 1
-    randaugment_m = 2
+    randaugment_n = 3
+    randaugment_m = 4
 
     dataset_str = "cifar10"
 
@@ -32,20 +31,16 @@ class BasicTransforms:
     pil_image_to_tensor = tfs.Compose(
         [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
     vflip = tfs.Compose(
-        [tfs.RandomVerticalFlip(p=0.5)] 
-        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+        [tfs.RandomVerticalFlip(p=0.5), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
     hflip = tfs.Compose(
-        [tfs.RandomHorizontalFlip(p=0.5)] 
-        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+        [tfs.RandomHorizontalFlip(p=0.5), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
     contrast = tfs.Compose(
-        [tfs.ColorJitter(contrast=1.0)] 
-        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+        [tfs.ColorJitter(contrast=1.0), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
     hflip_all = tfs.Compose(
-        [tfs.RandomHorizontalFlip(p=1.0)] 
-        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+        [tfs.RandomHorizontalFlip(p=1.0), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
     random = tfs.Compose(
-        [augmentations.RandAugment(Constants.randaugment_n, Constants.randaugment_m)] 
-        + [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+        [augmentations.RandAugment(Constants.randaugment_n, Constants.randaugment_m), \
+        tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
 
 def print_vm_info():
     '''Prints GPU and RAM info of the connected Google Colab VM.''' 

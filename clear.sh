@@ -11,4 +11,7 @@ mkdir models
 rm -r gmaxup_data
 mkdir gmaxup_data
 
-echo cleared runs, models, gmaxup_data
+rm -r logs
+mkdir logs
+
+echo cleared runs, models, gmaxup_data, logs

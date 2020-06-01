@@ -55,8 +55,8 @@ def TranslateYabs(img, v):  # [-150, 150] => percentage: [-0.45, 0.45]
     return img.transform(img.size, PIL.Image.AFFINE, (1, 0, 0, 0, 1, v))
 
 
-def Rotate(img, v):  # [-30, 30]
-    assert -30 <= v <= 30
+def Rotate(img, v):  # [-45, 45]
+    assert -45 <= v <= 45
     if random.random() > 0.5:
         v = -v
     return img.rotate(v)
@@ -73,19 +73,17 @@ def Invert(img, _):
 def Equalize(img, _):
     return PIL.ImageOps.equalize(img)
 
-def SoftEqualize(img, _):
+def SoftEqualize(img, v):
     # print("SoftEqualize")
 
-    img_np = np.array(img).astype(np.int)
-    equal_img = PIL.ImageOps.equalize(img)
-    equal_img_np = np.array(equal_img).astype(np.int)
-    # print(type(img_np))
-    # print(img_np.shape)
-    # print(type(equal_img_np))
-    # print(equal_img_np.shape)
-    soft_equal_img_np = np.divide(np.add(img_np, equal_img_np), 2.0).astype(np.uint8)
-    # print(type(soft_equal_img_np))
-    # print(soft_equal_img_np.shape)
+    equal_img_np = np.array(PIL.ImageOps.equalize(img)).astype(np.int)
+    orig_img_np = np.array(img).astype(np.int)
+
+    equal_img_np = np.multiply(equal_img_np, v)
+    orig_img_np = np.multiply(orig_img_np, 100-v)
+
+    soft_equal_img_np = np.divide(np.add(orig_img_np, equal_img_np), 100).astype(np.uint8)
+
     return Image.fromarray(soft_equal_img_np)
 
 def Flip(img, _):  # not from the paper
@@ -180,6 +178,26 @@ def augment_list(magnitude_range="orig"):  # 16 oeprations and their ranges
     bot = 0.6
     top = 1.4
 
+    # l = [
+    #     (Identity, 0., 1.0),
+    #     (ShearX, 0., 0.3),  # 0
+    #     (ShearY, 0., 0.3),  # 1
+    #     (TranslateX, 0., 0.33),  # 2
+    #     (TranslateY, 0., 0.33),  # 3
+    #     (Rotate, 0, 30),  # 4
+    #     (AutoContrast, 0, 1),  # 5
+    #     (Invert, 0, 1),  # 6
+    #     (Equalize, 0, 1),  # 7
+    #     (Solarize, 0, 110),  # 8
+    #     (Posterize, 4, 8),  # 9
+    #     # (Contrast, 0.1, 1.9),  # 10
+    #     (Color, 0.1, 1.9),  # 11
+    #     (Brightness, 0.1, 1.9),  # 12
+    #     (Sharpness, 0.1, 1.9),  # 13
+    #     # (Cutout, 0, 0.2),  # 14
+    #     # (SamplePairing(imgs), 0, 0.4),  # 15
+    # ]
+
     lists = {
         'orig': [
             (AutoContrast, 0, 1, "AutoContrast"),
@@ -222,7 +240,7 @@ def augment_list(magnitude_range="orig"):  # 16 oeprations and their ranges
 
         'deterministic': [
             # (AutoContrast, 0, 1, "AutoContrast"),
-            (SoftEqualize, 0, 1, "SoftEqualize"),
+            (SoftEqualize, 50, 50, "SoftEqualize"),
             # (Invert, 0, 1),
             (Rotate, 30, 30, "Rotate"),
             (Posterize, 3, 3, "Posterize"),
@@ -237,6 +255,25 @@ def augment_list(magnitude_range="orig"):  # 16 oeprations and their ranges
             (CutoutAbs, 7, 7, "CutoutAbs"),
             (TranslateXabs, 7, 7, "TranslateXabs"),
             (TranslateYabs, 7, 7, "TranslateYabs"),
+        ],
+
+        'reduced2': [
+            # (AutoContrast, 0, 1, "AutoContrast"),
+            (SoftEqualize, 0, 100, "SoftEqualize"),
+            # (Invert, 0, 1),
+            (Rotate, 0, 45, "Rotate"),
+            (Posterize, 2, 4, "Posterize"),
+            (Solarize, 0, 256, "Solarize"),
+            # (SolarizeAdd, 0, 28),
+            (Color, 0.5, 1.5, "Color"),
+            (Contrast, 0.5, 1.5, "Contrast"),
+            (Brightness, 0.5, 1.5, "Brightness"),
+            (Sharpness, 0.5, 1.5, "Sharpness"),
+            (ShearX, 0., 0.3, "ShearX"),
+            (ShearY, 0., 0.3, "ShearY"),
+            (CutoutAbs, 0, 12, "CutoutAbs"),
+            (TranslateXabs, 0., 12, "TranslateXabs"),
+            (TranslateYabs, 0., 12, "TranslateYabs"),
         ]
 
     }
@@ -298,7 +335,7 @@ class RandAugment:
 
     def __call__(self, img):
         ops = random.choices(self.augment_list, k=self.n)
-        for op, minval, maxval in ops:
+        for op, minval, maxval, _ in ops:
             val = (float(self.m) / 30) * float(maxval - minval) + minval
             img = op(img, val)
 

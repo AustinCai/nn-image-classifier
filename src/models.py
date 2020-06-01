@@ -50,7 +50,7 @@ class SmallCNN(nn.Module):
         self.conv1 = nn.Conv2d(3, 18, kernel_size=3, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.conv2 = nn.Conv2d(18, 18, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(18 * (32/4)**2, 64)
+        self.fc1 = nn.Linear(int(18 * (32/4)**2), 64)
         self.fc2 = nn.Linear(64, out_channels)
 
     def forward(self, x):
