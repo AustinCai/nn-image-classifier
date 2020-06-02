@@ -62,34 +62,14 @@ def show_graph(writer, model, images):
     print("    visualize.show_graph() completed in {} seconds.".format(time.time() - start_time))   
 
 
-
 def write_epoch_stats(writer, epoch, validation_acc, validation_loss, train_acc, train_loss):
     writer.add_scalar('Accuracy/Validation', validation_acc, epoch)
     writer.add_scalar('Loss/Validation', validation_loss, epoch)
     writer.add_scalar('Accuracy/Train', train_acc, epoch)
     writer.add_scalar('Loss/Train', train_loss, epoch)
+    writer.add_scalars("Validation vs. Train Accuracy", 
+        {"validation": validation_acc, "train": train_acc}, epoch)
 
-def write_epoch_statistics(writer, epoch, epoch_stats):
-    writer.add_scalar('Accuracy/Train', 
-        epoch_stats["accuracy"],
-        global_step=epoch+1)
-    writer.add_scalar('Loss/Train', 
-        epoch_stats["loss"], 
-        global_step=epoch+1)   
-    
-    if (epoch): # validation of first epoch is undefined
-        writer.add_scalar('Loss/Validation', 
-            epoch_stats["validation_loss"], 
-            global_step=epoch+1) 
-
-    if isinstance(epoch_stats["validation_accuracy"], float): # skip if "NA"
-        writer.add_scalars("Validation vs. Train Accuracy", 
-            {"validation": epoch_stats["validation_accuracy"], 
-            "train": epoch_stats["accuracy"]}, 
-            global_step=epoch+1)
-        writer.add_scalar('Accuracy/Validation', 
-            epoch_stats["validation_accuracy"], 
-            global_step=epoch+1)
 
 def normalize_cmatrix(cmatrix_test, norm_max):
     return np.floor(((norm_max-.0001)/cmatrix_test.max())*cmatrix_test).astype(int) + 1
@@ -106,14 +86,12 @@ def print_save_cmatrix(writer, y_batch_test, yh_batch_test):
     print(cmatrix_test)
 
 
-def print_final_model_stats(last_epoch_stats, accuracy):
+def print_final_model_stats(train_acc, validation_acc, test_acc):
     print("Final model statistics:")
-    print("    training accuracy: {}".format(last_epoch_stats["accuracy"]))
-    print("    validation accuracy: {}".format(last_epoch_stats["validation_accuracy"]))
-    if isinstance(last_epoch_stats["validation_accuracy"], float):
-        print("    train/val difference: {}".format(
-            last_epoch_stats["accuracy"] - last_epoch_stats["validation_accuracy"]))
-    print("    test accuracy: {}".format(accuracy))
+    print("    training accuracy: {}".format(train_acc))
+    print("    validation accuracy: {}".format(validation_acc))
+    print("    train/val difference: {}".format(train_acc-validation_acc))
+    print("    test accuracy: {}".format(test_acc))
 
 # helpers for train_gmaxup.py ===========================================================================
 # =======================================================================================================

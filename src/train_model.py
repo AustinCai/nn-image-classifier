@@ -13,7 +13,6 @@ import training
 import models
 
 import pickle
-import gzip
 from PIL import Image
 import torchvision.transforms as tfs
 from pathlib import Path
@@ -63,7 +62,7 @@ def build_save_str(args):
     optional_str = ""
     if len(optional_tokens):
         for token in optional_tokens:
-            optional_str += "-{}".format(token)
+            optional_str += "{}-".format(token)
 
     return '{}-{}e-{}-{}{}'.format(
         Constants.model_str, 
@@ -89,7 +88,8 @@ def main(args=None):
     if args.load_model == "wide-resnet":
         model = torchvision.models.wide_resnet50_2(pretrained=False, progress=True)
     elif args.load_model:
-        model, optimizer, pretrained_epochs, _ = training.load_model(args.load_model, model, optimizer)
+        model, optimizer, pretrained_epochs, loss = training.load_model(args.load_model, model, optimizer)
+        print("Loaded model with {} epochs and {} loss.".format(pretrained_epochs, loss))
 
     Constants.save_str = build_save_str(args)
     writer = SummaryWriter(Path(__file__).parent.parent / "runs" / Constants.save_str)
@@ -108,44 +108,34 @@ def main(args=None):
         Constants.model_str, args.optimizer, args.augmentation, args.epochs), 
         file = open(Path(__file__).parent.parent / "logs" / '{}.txt'.format(Constants.save_str), 'a'))
 
-    # see validation offset comment at end of file
-    # training_statistics_arr = [{
-    #     "loss": None, "accuracy": None, # will be replaced, implementing the validation offset
-    #     "validation_loss": "NA", "validation_accuracy": "NA" # val loss, accuracy of epoch 1 defined as NA
-    #     }]
+    epoch = None
+    train_acc, train_loss = None, None
+    validation_acc, validation_loss = None, None
 
     try: # run, log training 
         for epoch in range(args.epochs):
 
             with torch.no_grad(): # validation
-                validation_acc, validation_loss = training.run_epoch_2(
+                validation_acc, validation_loss = training.run_epoch(
                     model, loss_func, valid_dlr, verbose=args.verbose, fast=args.fast)
 
             # training
-            train_acc, train_loss = training.run_epoch_2(
+            train_acc, train_loss = training.run_epoch(
                 model, loss_func, train_dlr, epoch, bar, optimizer, args.verbose, args.fast)
 
             visualize.write_epoch_stats(
                 writer, epoch, validation_acc, validation_loss, train_acc, train_loss)
 
-            # training.run_epoch(model, loss_func, train_dlr, bar, optimizer, 
-            #     valid_dlr, training_statistics_arr, args.verbose, args.fast)
-            # visualize.write_epoch_statistics(writer, epoch, training_statistics_arr[-2])
-
-        # training_statistics_arr.pop() # pop last element, which is undefined because of validation offset
-
     except: # gracefully handle crashes during training
-        training.save_model(model, optimizer, None, "CRASH-{}".format(Constants.save_str), epoch)
+        training.save_model(model, optimizer, train_loss, "CRASH-{}".format(Constants.save_str), epoch)
         raise Exception('Error on epoch {} of training. Data dumped.'.format(epoch))
 
     if args.save_model:
         training.save_model(model, optimizer, train_loss, Constants.save_str, args.epochs)
 
     # get test accuracy 
-    accuracy, loss = training.run_epoch(model, loss_func, test_dlr, verbose=args.verbose)
-
-    # last_epoch_stats = training_statistics_arr[-1]
-    # visualize.print_final_model_stats(last_epoch_stats, accuracy)
+    test_acc, _ = training.run_epoch(model, loss_func, test_dlr, verbose=args.verbose, fast=args.fast)
+    visualize.print_final_model_stats(train_acc, validation_acc, test_acc)
 
     writer.close()
 
@@ -154,15 +144,4 @@ if __name__ == "__main__":
     args = get_args(sys.argv[1:])
     print("args: {}".format(args))
     main(args=args)
-
-
-'''
-Validation Offset:
-Validation statistics (validation accuracy and loss) V_e for epoch e is defined as the statistics the model achives 
-over the validation set after completing e-1 epochs of training. Training statistics (training accuracy and loss) 
-T_e for epoch e are defined as the averaged statistics over all training batches in epoch e. Eg. the validation 
-accuracy and loss of epoch 1 is 0 and NA, and all future valued are offset by one. Without this shift, the model 
-that validation statistics is calculated over would have undergone more training than the model that training 
-statistics is calculated over, artificially inflating validation values. 
-'''
 

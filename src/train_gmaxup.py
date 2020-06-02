@@ -158,9 +158,9 @@ def build_save_str(args):
     optional_str = ""
     if len(optional_tokens):
         for token in optional_tokens:
-            optional_str += "-{}".format(token)
+            optional_str += "{}-".format(token)
 
-    return "gmaxup_{}-{}-{}l-{}s{}-{}".format(
+    return "gmaxup_{}-{}-{}l-{}s-{}{}".format(
         args.dataset, args.range, args.layers, args.multiplier, optional_str, # optional string 
         datetime.datetime.now().strftime("%-m.%d.%y-%H:%M"))
 
