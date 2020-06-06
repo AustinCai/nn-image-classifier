@@ -1,7 +1,7 @@
 import sys
 import torch
 import pickle
-import torchvision.transforms as tfs
+import torchvision.transforms as transforms
 from pathlib import Path
 
 import augmentations
@@ -28,19 +28,20 @@ class Constants:
     dataset_str = "cifar10"
 
 class BasicTransforms:
-    pil_image_to_tensor = tfs.Compose(
-        [tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
-    vflip = tfs.Compose(
-        [tfs.RandomVerticalFlip(p=0.5), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
-    hflip = tfs.Compose(
-        [tfs.RandomHorizontalFlip(p=0.5), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
-    contrast = tfs.Compose(
-        [tfs.ColorJitter(contrast=1.0), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
-    hflip_all = tfs.Compose(
-        [tfs.RandomHorizontalFlip(p=1.0), tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
-    random = tfs.Compose(
-        [augmentations.RandAugment(Constants.randaugment_n, Constants.randaugment_m), \
-        tfs.ToTensor(), tfs.Normalize((0.5,), (0.5,))])
+    _CIFAR_MEAN, _CIFAR_STD = (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
+    
+    pil_image_to_tensor = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize(_CIFAR_MEAN, _CIFAR_STD)]
+        )
+    baseline = transforms.Compose(
+            [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()]
+            + [transforms.ToTensor(), transforms.Normalize(_CIFAR_MEAN, _CIFAR_STD)] 
+        )
+    random = transforms.Compose(
+            [augmentations.RandAugment(Constants.randaugment_n, Constants.randaugment_m)]
+            + [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()]
+            + [transforms.ToTensor(), transforms.Normalize(_CIFAR_MEAN, _CIFAR_STD)]
+        )
 
 def print_vm_info():
     '''Prints GPU and RAM info of the connected Google Colab VM.''' 

@@ -1,3 +1,5 @@
+# python src/train_gmaxup.py -m saved_models/best_cnn-200e-none-11:53-5.26.20 -r reduced2
+
 import matplotlib
 matplotlib.use('tkagg')  # Or any other X11 back-end
 import matplotlib.pyplot as plt
@@ -83,7 +85,8 @@ def apply_transormations(op_idxs, x_img, magnitude_range):
     for op_idx in op_idxs:
         op, minval, maxval, op_str = augmentations.augment_list(magnitude_range)[op_idx]
         # val = (GMaxupConsts.trans_magnitude / 30) * float(maxval - minval) + minval
-        rand_mag = random.randint(0, 30)
+        # rand_mag = random.randint(0, 30)
+        rand_mag = 2
         val = ( rand_mag / 30) * float(maxval - minval) + minval
         used_augment_mag_tuples.append((op_str, rand_mag))
         x_img = op(x_img, val)
@@ -104,7 +107,7 @@ def run_gmaxup_on_sample(sample_num, x, y, loss_func, model, augmented_batch, ar
         x_aug_img, used_augment_mag_tuples = apply_transormations(operation_idxs, x_img, args.range) 
 
         # first dimension = 1 to simulate a batch size of 1
-        x_aug_tensor = BasicTransforms.pil_image_to_tensor(x_aug_img).view(1, 3, 32, 32).to(Objects.dev)
+        x_aug_tensor = BasicTransforms.baseline(x_aug_img).view(1, 3, 32, 32).to(Objects.dev)
         
         yh, predictions = training.model_wrapper(model, x_aug_tensor)
         loss = loss_func(yh, y).item()
@@ -198,7 +201,7 @@ def main(args):
     # iterates through all batches of the dataset 
     for batch_num, curr_batch_str in enumerate(dataset_batches):
         images, labels = data_loading.load_data_by_path(
-            Path(__file__).parent.parent / 'saved_data' / args.dataset / curr_batch_str)       
+            Path(__file__).parent.parent.resolve().parent / 'saved_data' / args.dataset / curr_batch_str)       
 
         # iterates through all samples in a batch
         for sample_num, (x, y) in enumerate(zip(images, labels)):
