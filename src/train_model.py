@@ -8,7 +8,7 @@ from pathlib import Path
 
 import util 
 import data_loading
-import visualize
+import display
 import training
 import models
 
@@ -53,25 +53,6 @@ def get_args(arguments):
     return args
 
 
-def build_save_str(args):
-    optional_tokens = [] 
-    if args.load_model:
-        optional_tokens.append("pretrained_{}e".format(pretrained_epochs))
-    if args.name:
-        optional_tokens.append(args.name)
-    optional_str = ""
-    if len(optional_tokens):
-        for token in optional_tokens:
-            optional_str += "{}-".format(token)
-
-    return '{}-{}e-{}-{}{}'.format(
-        Constants.model_str, 
-        args.epochs, 
-        "gmaxup" if "gmaxup_cifar" in args.dataset else args.augmentation, # augmentation string
-        optional_str, # optional string 
-        datetime.datetime.now().strftime("%-m.%d.%y-%H:%M"))
-
-
 def main(args=None):
     '''Iterates through each model configuration specified by run_specifications. 
     Initializes and trains each model with its specified configuration, 
@@ -91,7 +72,7 @@ def main(args=None):
         model, optimizer, pretrained_epochs, loss = training.load_model(args.load_model, model, optimizer)
         print("Loaded model with {} epochs and {} loss.".format(pretrained_epochs, loss))
 
-    Constants.save_str = build_save_str(args)
+    Constants.save_str = display.build_model_save_str(args)
     writer = SummaryWriter(Path(__file__).parent.parent / "runs" / Constants.save_str)
 
     train_dlr, valid_dlr, test_dlr = data_loading.build_wrapped_dl(
@@ -101,16 +82,12 @@ def main(args=None):
 
     # show images and model graph 
     images, _ = iter(train_dlr).__next__()
-    visualize.show_images(writer, images, Constants.batch_size, title="Images", verbose=args.verbose)
-    visualize.show_graph(writer, model, images)
+    display.show_images(writer, images, Constants.batch_size, title="Images", verbose=args.verbose)
+    display.show_graph(writer, model, images)
 
     print('Training {} model with a \'{}\' optimization and \'{}\' augmentation over {} epochs'.format(
         Constants.model_str, args.optimizer, args.augmentation, args.epochs), 
         file = open(Path(__file__).parent.parent / "logs" / '{}.txt'.format(Constants.save_str), 'a'))
-
-    epoch = None
-    train_acc, train_loss = None, None
-    validation_acc, validation_loss = None, None
 
     try: # run, log training 
         for epoch in range(args.epochs):
@@ -123,7 +100,7 @@ def main(args=None):
             train_acc, train_loss = training.run_epoch(
                 model, loss_func, train_dlr, epoch, bar, optimizer, args.verbose, args.fast)
 
-            visualize.write_epoch_stats(
+            display.write_epoch_stats(
                 writer, epoch, validation_acc, validation_loss, train_acc, train_loss)
 
     except: # gracefully handle crashes during training
@@ -135,7 +112,7 @@ def main(args=None):
 
     # get test accuracy 
     test_acc, _ = training.run_epoch(model, loss_func, test_dlr, verbose=args.verbose, fast=args.fast)
-    visualize.print_final_model_stats(train_acc, validation_acc, test_acc)
+    display.print_final_model_stats(train_acc, validation_acc, test_acc)
 
     writer.close()
 

@@ -11,8 +11,10 @@ from util import Objects
 from util import BasicTransforms
 import augmentations
 
+
 # helpers for train_model.py and train_gmaxup.py ========================================================
 # =======================================================================================================
+
 
 # helpers for train_model.py ============================================================================
 # =======================================================================================================
@@ -52,9 +54,11 @@ def build_mnist_ds(dataset_root_path="saved_data",
 def build_custom_cifar10_ds(dataset_path, 
     test_transform=BasicTransforms.pil_image_to_tensor):
 
+    # gets the training data from the given target
     with open(Path(__file__).parent.parent.parent / dataset_path, 'rb') as handle:
         train_ds = pickle.load(handle)
 
+    # the test dataset is just the normal cifar10 test set
     _, valid_test_ds = build_cifar10_ds(test_transform = test_transform)
 
     return train_ds, valid_test_ds

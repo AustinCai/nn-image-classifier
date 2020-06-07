@@ -5,13 +5,21 @@ import time
 from pathlib import Path
 import datetime
 
-import visualize
+import display
 import models
 
 from util import Constants
 from util import Objects
 
 import progressbar
+
+
+# helpers for train_model.py and train_gmaxup.py ========================================================
+# =======================================================================================================
+
+
+# helpers for train_model.py ============================================================================
+# =======================================================================================================
 
 
 def model_wrapper(model, x, label_str=None): 
@@ -105,14 +113,15 @@ def load_model(path, model, optimizer=None):
     return model, optimizer, epoch, loss
 
 
+# helpers for train_gmaxup.py ===========================================================================
+# =======================================================================================================
+
+
 # helpers for testing ===================================================================================
 # =======================================================================================================
 
 def test():
-    model = getattr(Models, "best_cnn")
-    optimizer = init_optimizer(model, "adam")
-    print(optimizer)
-    print(type(optimizer))
+    pass
 
 if __name__ == "__main__":
     test()
