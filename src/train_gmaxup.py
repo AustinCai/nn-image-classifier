@@ -4,28 +4,24 @@ import matplotlib
 matplotlib.use('tkagg')  # Or any other X11 back-end
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import argparse
 import sys
-from pathlib import Path
 import random
+import pickle
+import heapq
+import progressbar
 
 import data_loading
 import display
 import training
 import augmentations
-
-from util import Constants
-from util import Objects
-from util import BasicTransforms
-from util import GMaxupConsts
 import util
 
-import pickle
+from pathlib import Path
 from PIL import Image
-import heapq
-import progressbar
+from torch.utils.tensorboard import SummaryWriter
+from util import Constants, Objects, BasicTransforms, GMaxupConsts
 
 
 def get_args(arguments):
@@ -93,7 +89,7 @@ def run_gmaxup_on_sample(sample_num, x, y, loss_func, model, augmented_batch, ar
         # first dimension = 1 to simulate a batch size of 1
         x_aug_tensor = BasicTransforms.baseline(x_aug_img).view(1, 3, 32, 32).to(Objects.dev)
         
-        yh, predictions = training.model_wrapper(model, x_aug_tensor)
+        yh, _ = training.model_wrapper(model, x_aug_tensor)
         loss = loss_func(yh, y).item()
 
         if writer and args.test: # show augmented candidates for one sample 
@@ -130,10 +126,10 @@ def main(args):
         args.setsize = 1
     
     if not args.load_model:
-        saved_models_path = Path(__file__).parent.parent / 'saved_models'
+        saved_models_path = Path(__file__).parent.parent.resolve().parent / 'saved_models'
         model_path =  saved_models_path / saved_models_path.iterdir().__next__().name
     else:
-        model_path = Path(__file__).parent.parent / args.load_model
+        model_path = Path(__file__).parent.parent.resolve().parent / args.load_model
     print("Using evaluator model: {}".format(model_path))
 
     # load evaluator model

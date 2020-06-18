@@ -4,15 +4,15 @@ matplotlib.use('tkagg')  # Or any other X11 back-end
 import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
 import time
 import datetime
 
 from util import Constants
+from sklearn.metrics import confusion_matrix
 
-
-# helpers for train_model.py and train_gmaxup.py ========================================================
-# =======================================================================================================
+''' 
+helpers for train_model.py and train_gmaxup.py
+''' 
 
 
 def show_images(writer, images, batch_size, title="Images", verbose=False):
@@ -36,8 +36,9 @@ def show_images(writer, images, batch_size, title="Images", verbose=False):
     print("    display.show_images() completed in {} seconds.".format(time.time() - start_time))
 
 
-# helpers for train_model.py ============================================================================
-# =======================================================================================================
+''' 
+helpers for train_model.py
+''' 
 
 def build_model_save_str(args):
     optional_tokens = [] 
@@ -99,8 +100,9 @@ def print_final_model_stats(train_acc, validation_acc, test_acc):
     print("    train/val difference: {}".format(train_acc-validation_acc))
     print("    test accuracy: {}".format(test_acc))
 
-# helpers for train_gmaxup.py ===========================================================================
-# =======================================================================================================
+''' 
+helpers for train_gmaxup.py
+''' 
 
 def log_image_and_transformations(writer, x_aug_tensor, c, used_augment_mag_tuples, loss, sample_num):
     '''For each candidate augmentation sequence, write the transformed image to tensorboard and print
@@ -145,8 +147,9 @@ def print_augment_stats(augment_stats):
         print("    average loss: {}".format(stats["average_loss"]))
 
 
-# helpers for testing ===================================================================================
-# =======================================================================================================
+''' 
+helpers for testing
+''' 
 
 def test():
     pass

@@ -1,11 +1,11 @@
 import torch
 import pickle
+import augmentations
 import torchvision.transforms as transforms
 
-import augmentations
-
-# helpers for train_model.py and train_gmaxup.py ========================================================
-# =======================================================================================================
+'''
+helpers for train_model.py and train_gmaxup.py
+'''
 
 class Objects:
     dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -49,8 +49,9 @@ class BasicTransforms:
 #     with open(path, 'rb') as handle:
 #         return pickle.load(handle)
 
-# helpers for train_gmaxup.py ===========================================================================
-# =======================================================================================================
+'''
+helpers for train_gmaxup.py
+''' 
 
 class GMaxupConsts:
     dataset_batches_dict = {
@@ -66,12 +67,9 @@ class GMaxupConsts:
 #         pickle.dump(data, data_file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-# helpers for train_gmaxup.py ===========================================================================
-# =======================================================================================================
-
-
-# helpers for testing ===================================================================================
-# =======================================================================================================
+''' 
+helpers for testing 
+''' 
 
 def test():
     print(getattr(BasicTransforms, "vflip"))

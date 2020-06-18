@@ -1,28 +1,23 @@
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import datetime
 import argparse
 import sys
-from pathlib import Path
-
 import util 
 import data_loading
 import display
 import training
 import models
-
-import pickle
-from PIL import Image
-import torchvision.transforms as tfs
-from pathlib import Path
 import progressbar
 
-from util import Constants
-from util import Objects
+from PIL import Image
+from pathlib import Path
+from util import Constants, Objects
+from torch.utils.tensorboard import SummaryWriter
 
 def get_args(arguments):
-    '''Parse the arguments passed via the command line.
+    '''
+    Parse the arguments passed via the command line.
     '''
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -35,9 +30,9 @@ def get_args(arguments):
     parser.add_argument('-a', '--augmentation', 
         help = 'Specify augmentation to use.', type=str, default="none")
     parser.add_argument('-d', '--dataset',
-        help = 'Specify which dataset to train over. If the dataset is a built-in dataset, only'
-        + 'the dataset name (eg. cifar10) must be specified. Otherwise, the entire path must be' 
-        + 'specified (eg. saved_data/gmaxup_cifar-10-batches).', 
+        help = 'Specify which dataset to train over. If the dataset is a built-in dataset, only \
+        the dataset name (eg. cifar10) must be specified. Otherwise, the entire path must be \
+        specified (eg. saved_data/gmaxup_cifar-10-batches).', 
         type=str, default="cifar10")
     parser.add_argument('-s', '--save_model', 
         help = 'Save model after training.', action='store_true')
@@ -54,8 +49,8 @@ def get_args(arguments):
 
 
 def main(args=None):
-    '''Iterates through each model configuration specified by run_specifications. 
-    Initializes and trains each model with its specified configuration, 
+    '''
+    Initializes and trains model with its specified configuration, 
     evaluates each on the test set, and records its performance to 
     tensorboard.
     '''
@@ -110,7 +105,6 @@ def main(args=None):
     if args.save_model:
         training.save_model(model, optimizer, train_loss, Constants.save_str, args.epochs)
 
-    # get test accuracy 
     test_acc, _ = training.run_epoch(model, loss_func, test_dlr, verbose=args.verbose, fast=args.fast)
     display.print_final_model_stats(train_acc, validation_acc, test_acc)
 

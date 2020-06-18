@@ -1,14 +1,15 @@
 import math
 import torch
-from torch.utils.tensorboard import SummaryWriter
-from torch import nn 
 import data_loading
-from util import Constants
-from util import Objects
-from pathlib import Path
 import display
 
+from torch.utils.tensorboard import SummaryWriter
+from torch import nn 
+from util import Constants, Objects
+from pathlib import Path
 
+
+# TODO: LOOK AT MO'S CODE REVIEW COMMENT FOR IMPROVING THESE FUNCTIONS 
 def build_vflip_matrix(img_dim, flat_dim):
 	'''Creates a matrix to parameterize a vertical flip.'''
 
@@ -17,7 +18,7 @@ def build_vflip_matrix(img_dim, flat_dim):
 		row = [0. for _ in range(flat_dim)]
 		row[flat_dim - img_dim*(math.floor(r/img_dim)+1) + r%img_dim] = 1.
 		vflip_matrix_list.append(row)
-	return torch.FloatTensor(vflip_matrix_list).to(Objects.dev)
+	return torch.FloatTensor(vflip_matrix_list).to(Objects.dev) # gpu if available, else cpu
 
 
 def build_hflip_matrix(img_dim, flat_dim):
@@ -28,8 +29,8 @@ def build_hflip_matrix(img_dim, flat_dim):
 	    row = [0. for _ in range(flat_dim)]
 	    row[img_dim*(math.floor(r/img_dim)+1) - r%img_dim - 1] = 1.
 	    hflip_matrix_list.append(row)
-	return torch.FloatTensor(hflip_matrix_list).to(Objects.dev)
-
+	return torch.FloatTensor(hflip_matrix_list).to(Objects.dev) # gpu if available, else cpu
+ 
 
 def load_singleton_batch_from_cifar10():
 	'''Returns a single cifar10 image.'''
@@ -50,7 +51,7 @@ def load_singleton_batch_dummy():
 	'''Returns a dummy 3*3 "image" for testing.'''
 
 	image_list = 3*[i for i in range(1,10)]
-	return torch.FloatTensor(image_list).view(1,-1).to(Objects.dev)
+	return torch.FloatTensor(image_list).view(1,-1).to(Objects.dev) # gpu if available, else cpu
 
 
 def main():

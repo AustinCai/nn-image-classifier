@@ -1,53 +1,57 @@
 import torch
 import torchvision
-import torchvision.transforms as tfs
-from pathlib import Path
 import pickle
-from torch.utils.data import Dataset
-
+import torchvision.transforms as tfs
 import util
-from util import Constants
-from util import Objects
-from util import BasicTransforms
 import augmentations
 
+from pathlib import Path
+from torch.utils.data import Dataset
+from util import Constants, Objects, BasicTransforms
 
-# helpers for train_model.py and train_gmaxup.py ========================================================
-# =======================================================================================================
+''' 
+helpers for train_model.py
+''' 
 
-
-# helpers for train_model.py ============================================================================
-# =======================================================================================================
-
-def build_cifar10_ds(dataset_root_path="saved_data", 
+def build_cifar10_ds(
+    dataset_root_path="saved_data", 
     train_transform=BasicTransforms.pil_image_to_tensor, 
-    test_transform=BasicTransforms.pil_image_to_tensor):
-    '''Loads and returns training and test datasets, applying the provided 
+    test_transform=BasicTransforms.pil_image_to_tensor
+    ):
+    '''
+    Loads and returns training and test datasets, applying the provided 
     transform functions. Because cifar10 is a built-in dataset, only the 
     dataset root path must be specified. 
     '''
     train_ds = torchvision.datasets.CIFAR10(
         Path(__file__).parent.parent.parent / dataset_root_path, 
-        train=True, transform=train_transform, download=False)
+        train=True, transform=train_transform, download=False
+    )
     valid_test_ds = torchvision.datasets.CIFAR10(
         Path(__file__).parent.parent.parent / dataset_root_path, 
-        train=False, transform=test_transform, download=False)
+        train=False, transform=test_transform, download=False
+    )
     return train_ds, valid_test_ds
 
 
-def build_mnist_ds(dataset_root_path="saved_data", 
+def build_mnist_ds(
+    dataset_root_path="saved_data", 
     train_transform=BasicTransforms.pil_image_to_tensor, 
-    test_transform=BasicTransforms.pil_image_to_tensor):
-    '''Loads and returns training and test datasets, applying the provided 
+    test_transform=BasicTransforms.pil_image_to_tensor
+    ):
+    '''
+    Loads and returns training and test datasets, applying the provided 
     transform functions. Because mnist is a built-in dataset, only the
     dataset root path must be specified. 
     '''
     train_ds = torchvision.datasets.MNIST(
         Path(__file__).parent.parent.parent / dataset_root_path, 
-        train=True, transform=train_transform, download=False)
+        train=True, transform=train_transform, download=False
+    )
     valid_test_ds = torchvision.datasets.MNIST(
         Path(__file__).parent.parent.parent / dataset_root_path, 
-        train=False, transform=test_transform, download=False)
+        train=False, transform=test_transform, download=False
+    )
     return train_ds, valid_test_ds
 
 
@@ -64,20 +68,18 @@ def build_custom_cifar10_ds(dataset_path,
     return train_ds, valid_test_ds
 
 def build_dl(augmentation_str, dataset_str, shuffle=True, verbose=False): 
-    '''Constructs and loads training and test dataloaders, which can be iterated 
+    '''
+    Constructs and loads training and test dataloaders, which can be iterated 
     over to return one batch at a time. 
     '''
     transform = BasicTransforms.pil_image_to_tensor if augmentation_str == "none" \
         else getattr(BasicTransforms, augmentation_str)
 
-    # built-in datasets
-    if dataset_str == "mnist":
+    if dataset_str == "mnist": # built-in datasets
         train_ds, valid_test_ds = build_mnist_ds("saved_data", transform)           
-    elif dataset_str == "cifar10":
+    elif dataset_str == "cifar10": # built-in datasets
         train_ds, valid_test_ds = build_cifar10_ds("saved_data", transform)
-
-    # custom datasets
-    elif "gmaxup_cifar" in dataset_str:
+    elif "gmaxup_cifar" in dataset_str: # custom dataset
         train_ds, valid_test_ds = build_custom_cifar10_ds(dataset_str)
     else:
         raise Exception("Invalid dataset path {}".format(dataset_str))
@@ -125,7 +127,8 @@ class WrappedDataLoader:
 
 
 def wrap_dl(train_dl, valid_dl, test_dl, reshape, verbose=False):
-    '''Creates two versions of training and test dataloaders: one the resizes 
+    '''
+    Creates two versions of training and test dataloaders: one the resizes 
     inputs and one that doesn't. The resized inputs are passed to the model,
     while the un-resized inputs are displayed as images on tensorboard. 
     '''
@@ -151,8 +154,9 @@ def build_wrapped_dl(augmentation, dataset, verbose=False):
     return train_dlr, valid_dlr, test_dlr
 
 
-# helpers for train_gmaxup.py ===========================================================================
-# =======================================================================================================
+''' 
+helpers for train_gmaxup.py
+''' 
 
 def load_data_by_path(path):
     f = open(path, 'rb')
@@ -175,9 +179,9 @@ class DatasetFromTupleList(Dataset):
     def __getitem__(self, idx):
         return self.samples[idx]
 
-
-# helpers for testing ===================================================================================
-# =======================================================================================================
+''' 
+helpers for testing
+''' 
 
 def test():
     pass

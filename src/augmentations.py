@@ -2,14 +2,15 @@
 # https://github.com/ildoonet/pytorch-randaugment/blob/master/RandAugment/augmentations.py
 
 import random
-
 import PIL, PIL.ImageOps, PIL.ImageEnhance, PIL.ImageDraw
 import numpy as np
 import torch
+
 from PIL import Image
 
-# helpers for train_model.py and train_gmaxup.py ========================================================
-# =======================================================================================================
+''' 
+helpers for train_model.py and train_gmaxup.py
+''' 
 
 def ShearX(img, v):  # [-0.3, 0.3]
     assert -0.3 <= v <= 0.3
@@ -342,16 +343,9 @@ class RandAugment:
         return img
 
 
-# helpers for train_model.py ============================================================================
-# =======================================================================================================
-
-
-# helpers for train_gmaxup.py ===========================================================================
-# =======================================================================================================
-
-
-# helpers for testing ===================================================================================
-# =======================================================================================================
+''' 
+helpers for testing
+''' 
 
 def test():
 	pass

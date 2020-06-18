@@ -1,25 +1,21 @@
 import torch
-from torch import nn 
 import torch.nn.functional as F
 import time
-from pathlib import Path
 import datetime
 
 import display
 import models
-
-from util import Constants
-from util import Objects
-
 import progressbar
 
+from torch import nn 
+from pathlib import Path
+from util import Constants, Objects
 
-# helpers for train_model.py and train_gmaxup.py ========================================================
-# =======================================================================================================
 
 
-# helpers for train_model.py ============================================================================
-# =======================================================================================================
+''' 
+helpers for train_model.py
+''' 
 
 
 def model_wrapper(model, x, label_str=None): 
@@ -27,7 +23,7 @@ def model_wrapper(model, x, label_str=None):
     predictions = torch.argmax(yh, dim=1)
 
     if label_str:
-        if not label_str == "":
+        if label_str != "":
             label_str = "_" + label_str
         print("    x{}.size(): {}".format(label_str, x.size()))   
         print("    yh{}.size(): {}".format(label_str, yh.size()))
@@ -55,7 +51,7 @@ def run_epoch(model, loss_func, dataloader,
     running_loss, running_accuracy = 0.0, 0.0
     epoch_len = len(dataloader)*Constants.batch_size
 
-    if optimizer: # perform learning
+    if optimizer: # zero gradient if we are learning model
         optimizer.zero_grad()
     for i, (x_batch, y_batch) in enumerate(dataloader):
         if i > 10 and fast:
@@ -77,7 +73,7 @@ def run_epoch(model, loss_func, dataloader,
 def init_optimizer(model, optimizer_str="adam"):
     if optimizer_str == "sgd":
         return torch.optim.SGD(model.parameters(), lr=Constants.learning_rate)
-    if optimizer_str == "adam":
+    elif optimizer_str == "adam":
         return torch.optim.Adam(model.parameters(), lr=Constants.learning_rate)
     # if optimizer_str == "sgd_decay":
     #     return torch.optim.SGD(model.parameters(), lr=0.1, momentum= weight_decay=5e-4)
@@ -113,12 +109,9 @@ def load_model(path, model, optimizer=None):
     return model, optimizer, epoch, loss
 
 
-# helpers for train_gmaxup.py ===========================================================================
-# =======================================================================================================
-
-
-# helpers for testing ===================================================================================
-# =======================================================================================================
+''' 
+helpers for testing
+''' 
 
 def test():
     pass
