@@ -1,3 +1,3 @@
-# mnist-class-colab
+# nn-image-classifier
 
-implemented with reference to https://pytorch.org/tutorials/beginner/nn_tutorial.html 
+Framework for building, training, testing, models for image classification on the CIFAR-10 dataset. Work in progress. 
